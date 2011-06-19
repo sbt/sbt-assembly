@@ -9,24 +9,25 @@ import Project.Initialize
 
 object AssemblyPlugin extends Plugin {  
   val Assembly = config("assembly") extend(Runtime)
-  val assembly = TaskKey[Unit]("assembly")
+  val assembly = TaskKey[File]("assembly")
   
   val jarName           = SettingKey[String]("jar-name")
   val outputPath        = SettingKey[File]("output-path")
   val excludedFiles     = SettingKey[Seq[File] => Seq[File]]("excluded-files")  
   val conflictingFiles  = SettingKey[Seq[File] => Seq[File]]("conflicting-files")  
   
-  private def assemblyTask: Initialize[Task[Unit]] =
+  private def assemblyTask: Initialize[Task[File]] =
     (test, packageOptions, cacheDirectory, outputPath,
         fullClasspath, excludedFiles, conflictingFiles, streams) map {
       (test, options, cacheDir, jarPath, cp, exclude, conflicting, s) =>
         IO.withTemporaryDirectory { tempDir =>
           val srcs = assemblyPaths(tempDir, cp, exclude, conflicting, s.log)
           val config = new Package.Configuration(srcs, jarPath, options)
-          Package(config, cacheDir, s.log) 
+          Package(config, cacheDir, s.log)
+          jarPath
         }
     }
-  
+
   private def assemblyPackageOptionsTask: Initialize[Task[Seq[PackageOption]]] =
     (packageOptions in Compile, mainClass in Assembly) map { (os, mainClass) =>
       mainClass map { s =>
