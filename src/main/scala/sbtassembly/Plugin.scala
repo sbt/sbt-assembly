@@ -75,11 +75,11 @@ object Plugin extends sbt.Plugin {
       IO.delete(ao.exclude(Seq(tempDir)))
       val servicesDir = tempDir / "META-INF" / "services"
       if (servicesDir.asFile.exists) {
-       for (service <- (servicesDir ** "*").get) {
+       for (service <- (servicesDir * "*").get) {
          val serviceFile = service.asFile
          if (serviceFile.exists && serviceFile.isFile) {
            val entries = services.getOrElseUpdate(serviceFile.getName, new mutable.ArrayBuffer[String]())
-           for (provider <- Source.fromFile(serviceFile).getLines) {
+           for (provider <- IO.readLines(serviceFile, IO.utf8)) {
              if (!entries.contains(provider)) {
                entries += provider
              }
