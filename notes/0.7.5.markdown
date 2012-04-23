@@ -1,0 +1,2 @@
+## minor updates
+- add merge strategies in case of conflicting resources

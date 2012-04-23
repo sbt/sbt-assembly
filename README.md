@@ -143,6 +143,40 @@ To set an explicit main class,
 mainClass in assembly := Some("com.example.Main")
 ```
 
+What about Conflicts?
+---------------------
+
+If multiple files share the same relative path (e.g. a resource named
+`application.conf` in multiple dependency JARs), the default strategy is to
+verify that all candidates have the same contents and error out if that is not
+the case. This behavior can be configured on a per-path basis using either one
+of the following built-in strategies or writing a custom one:
+
+* `MergeStrategy.first` picks the first of the conflicting files in classpath order
+* `MergeStrategy.last` picks the last one
+* `MergeStrategy.error` bails out with an error message
+* `MergeStrategy.deduplicate` is the default described above
+* `MergeStrategy.concat` simply concatenates all conflicting files and includes the result
+* `MergeStrategy.filterDistinctLines` also concatenates, but leaves out duplicates along the way
+
+The mapping of path names to merge strategies is done via the setting
+`assembly-merge-strategy` which can be augmented like so:
+
+```
+mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
+  {
+    case "application.conf" => MergeStrategy.concat
+    case x => old(x)
+  }
+}
+```
+
+where the default is to
+
+* `concat` "reference.conf",
+* `filterDistinctLines` everything below "META-INF/services" and
+* `deduplicate` the rest.
+
 License
 -------
 

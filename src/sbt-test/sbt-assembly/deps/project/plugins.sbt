@@ -1,1 +1,1 @@
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.7.3-SNAPSHOT")
+addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.7.5-SNAPSHOT")

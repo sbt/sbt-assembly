@@ -2,10 +2,11 @@ package sbtassembly
 
 import sbt._
 import Keys._
-import java.io.PrintWriter
 import scala.collection.mutable
 import scala.io.Source
 import Project.Initialize
+import java.io.{ PrintWriter, FileOutputStream, File }
+import java.security.MessageDigest
 
 object Plugin extends sbt.Plugin {
   import AssemblyKeys._
@@ -23,12 +24,81 @@ object Plugin extends sbt.Plugin {
     lazy val excludedFiles     = SettingKey[Seq[File] => Seq[File]]("assembly-excluded-files")
     lazy val excludedJars      = TaskKey[Classpath]("assembly-excluded-jars")
     lazy val assembledMappings = TaskKey[File => Seq[(File, String)]]("assembly-assembled-mappings")
+    lazy val mergeStrategy     = SettingKey[String => MergeStrategy]("assembly-merge-strategy", "mapping from archive member path to merge strategy")
+  }
+  
+  /**
+   * MergeStrategy is invoked if more than one source file is mapped to the 
+   * same target path. Its arguments are the tempDir (which is deleted after
+   * packaging) and the sequence of source files, and it shall return the
+   * file to be included in the assembly (or throw an exception).
+   */
+  type MergeStrategy = (File, Seq[File]) => (Either[String, File], String)
+  object MergeStrategy {
+
+    val first: MergeStrategy = (tmp, files) => (Right(files.head), "first")
+    
+    val last: MergeStrategy = (tmp, files) => (Right(files.last), "last")
+    
+    val error: MergeStrategy = (tmp, files) =>
+      (Left("found multiple files for same target path:" + files.map(filename(tmp, _)).mkString("\n", "\n", "")), "error")
+    
+    val concat: MergeStrategy = { (tmp, files) =>
+      val file = File.createTempFile("sbtMergeTarget", ".tmp", tmp)
+      val out = new FileOutputStream(file)
+      try {
+        files foreach (f => IO.transfer(f, out))
+        (Right(file), "concat")
+      } finally {
+        out.close()
+      }
+    }
+    
+    val filterDistinctLines: MergeStrategy = { (tmp, files) =>
+      val lines = files flatMap (IO.readLines(_, IO.utf8))
+      val unique = (Vector.empty[String] /: lines)((v, l) => if (v contains l) v else v :+ l)
+      val file = File.createTempFile("sbtMergeTarget", ".tmp", tmp)
+      IO.writeLines(file, unique, IO.utf8)
+      (Right(file), "filterDistinctLines")
+    }
+    
+    val deduplicate: MergeStrategy = { (tmp, files) =>
+      val fingerprints = Set() ++ (files map (sha1content))
+      val result =
+        if (fingerprints.size == 1) Right(files.head)
+        else Left("different file contents found in the following:" + files.map(filename(tmp, _)).mkString("\n", "\n", ""))
+      (result, "deduplicate")
+    }
+  }
+  
+  private val PathRE = "([^/]+)/(.*)".r
+  private def filename(tempDir: File, f: File): String = {
+    val baseURI = tempDir.getCanonicalFile.toURI
+    val otherURI = f.getCanonicalFile.toURI
+    baseURI.relativize(otherURI) match {
+      case x if x.isAbsolute => f.getCanonicalPath
+      case relative =>
+        val PathRE(head, tail) = relative.getPath
+        val jarName = IO.read(tempDir / (head + ".jarName"), IO.utf8)
+        jarName + ":" + tail
+    }
   }
   
   private def assemblyTask(out: File, po: Seq[PackageOption], mappings: File => Seq[(File, String)],
-      cacheDir: File, log: Logger): File =
+      mergeStrategy: String => MergeStrategy, cacheDir: File, log: Logger): File =
     IO.withTemporaryDirectory { tempDir =>
-      val srcs = mappings(tempDir)
+      val srcs: Seq[(File, String)] = mappings(tempDir).groupBy(_._2).map{
+        case (_, files) if files.size == 1 => files.head
+        case (name, files) =>
+          val result = mergeStrategy(name)(tempDir, files map (_._1)) match {
+            case (Right(f), n) =>
+              log.info("merging '%s' with strategy '%s'".format(name, n))
+              f
+            case (Left(err), n) =>
+              throw new RuntimeException(n + ": " + err)
+          }
+          (result, name)
+      }(scala.collection.breakOut)
       val config = new Package.Configuration(srcs, out, po)
       Package(config, cacheDir, log)
       out
@@ -44,6 +114,9 @@ object Plugin extends sbt.Plugin {
         case f if f.getName.toLowerCase == "manifest.mf" => f
       }) 
     }
+  
+  private def sha1 = MessageDigest.getInstance("SHA-1")
+  private def sha1content(f: File) = sha1.digest(IO.readBytes(f)).toSeq
 
   // even though fullClasspath includes deps, dependencyClasspath is needed to figure out
   // which jars exactly belong to the deps for packageDependency option.
@@ -53,7 +126,6 @@ object Plugin extends sbt.Plugin {
 
     val (libs, dirs) = classpath.map(_.data).partition(ClasspathUtilities.isArchive)
     val (depLibs, depDirs) = dependencies.map(_.data).partition(ClasspathUtilities.isArchive)
-    val services = mutable.Map[String, mutable.ArrayBuffer[String]]()
     val excludedJars = ej map {_.data}
     val libsFiltered = libs flatMap {
       case jar if excludedJars contains jar.asFile => None
@@ -71,39 +143,25 @@ object Plugin extends sbt.Plugin {
         if (ao.includeBin) Some(dir) else None
     }
     
-    for(jar <- libsFiltered) {
-      val jarName = jar.asFile.getName
-      log.info("Including %s".format(jarName))
-      IO.unzip(jar, tempDir)
-      IO.delete(ao.exclude(Seq(tempDir)))
-      val servicesDir = tempDir / "META-INF" / "services"
-      if (servicesDir.asFile.exists) {
-       for (service <- (servicesDir * "*").get) {
-         val serviceFile = service.asFile
-         if (serviceFile.exists && serviceFile.isFile) {
-           val entries = services.getOrElseUpdate(serviceFile.getName, new mutable.ArrayBuffer[String]())
-           for (provider <- IO.readLines(serviceFile, IO.utf8)) {
-             if (!entries.contains(provider)) {
-               entries += provider
-             }
-           }
-         }
-       }
-     }
-    }
-
-    for ((service, providers) <- services) {
-      log.info("Merging providers for %s".format(service))
-      val serviceFile = (tempDir / "META-INF" / "services" / service).asFile
-      val writer = new PrintWriter(serviceFile)
-      for (provider <- providers.map { _.trim }.filter { !_.isEmpty }) {
-        log.debug("-  %s".format(provider))
-        writer.println(provider)
-      }
-      writer.close()
+    def sha1name(f: File): String = {
+      val bytes = f.getCanonicalPath.getBytes
+      val digest = sha1.digest(bytes)
+      ("" /: digest)(_ + "%02x".format(_))
     }
     
-    val base = tempDir +: dirsFiltered
+    val jarDirs = for(jar <- libsFiltered) yield {
+      val jarName = jar.asFile.getName
+      log.info("Including %s".format(jarName))
+      val hash = sha1name(jar)
+      IO.write(tempDir / (hash + ".jarName"), jar.getCanonicalPath, IO.utf8, false)
+      val dest = tempDir / hash
+      dest.mkdir()
+      IO.unzip(jar, dest)
+      IO.delete(ao.exclude(Seq(dest)))
+      dest
+    }
+
+    val base = jarDirs ++ dirsFiltered
     val descendants = ((base ** (-DirectoryFilter)) --- ao.exclude(base)).get filter { _.exists }
     
     descendants x relativeTo(base)
@@ -117,17 +175,23 @@ object Plugin extends sbt.Plugin {
   
   lazy val baseAssemblySettings: Seq[sbt.Project.Setting[_]] = Seq(
     assembly <<= (test in assembly, outputPath in assembly, packageOptions in assembly,
-        assembledMappings in assembly, cacheDirectory, streams) map {
-      (test, out, po, am, cacheDir, s) =>
-        assemblyTask(out, po, am, cacheDir, s.log) },
+        assembledMappings in assembly, mergeStrategy in assembly, cacheDirectory, streams) map {
+      (test, out, po, am, ms, cacheDir, s) =>
+        assemblyTask(out, po, am, ms, cacheDir, s.log) },
     
     assembledMappings in assembly <<= (assemblyOption in assembly, fullClasspath in assembly, dependencyClasspath in assembly,
         excludedJars in assembly, streams) map {
       (ao, cp, deps, ej, s) => (tempDir: File) => assemblyAssembledMappings(tempDir, cp, deps, ao, ej, s.log) },
+      
+    mergeStrategy in assembly := { 
+        case "reference.conf" => MergeStrategy.concat
+        case n if n.startsWith("META-INF/services/") => MergeStrategy.filterDistinctLines
+        case _ => MergeStrategy.deduplicate
+      },
 
     packageScala <<= (outputPath in assembly, packageOptions,
-        assembledMappings in packageScala, cacheDirectory, streams) map {
-      (out, po, am, cacheDir, s) => assemblyTask(out, po, am, cacheDir, s.log) },
+        assembledMappings in packageScala, mergeStrategy in assembly, cacheDirectory, streams) map {
+      (out, po, am, ms, cacheDir, s) => assemblyTask(out, po, am, ms, cacheDir, s.log) },
 
     assembledMappings in packageScala <<= (assemblyOption in assembly, fullClasspath in assembly, dependencyClasspath in assembly,
         excludedJars in assembly, streams) map {
@@ -137,8 +201,8 @@ object Plugin extends sbt.Plugin {
           ej, s.log) },
 
     packageDependency <<= (outputPath in assembly, packageOptions in assembly,
-        assembledMappings in packageDependency, cacheDirectory, streams) map {
-      (out, po, am, cacheDir, s) => assemblyTask(out, po, am, cacheDir, s.log) },
+        assembledMappings in packageDependency, mergeStrategy in assembly, cacheDirectory, streams) map {
+      (out, po, am, ms, cacheDir, s) => assemblyTask(out, po, am, ms, cacheDir, s.log) },
     
     assembledMappings in packageDependency <<= (assemblyOption in assembly, fullClasspath in assembly, dependencyClasspath in assembly,
         excludedJars in assembly, streams) map {

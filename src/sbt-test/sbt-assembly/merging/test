@@ -1,0 +1,6 @@
+# check if the file gets created
+> assembly
+$ exists target/foo.jar
+
+# check if it says hello
+> check
