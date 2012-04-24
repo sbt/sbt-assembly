@@ -103,16 +103,34 @@ object Plugin extends sbt.Plugin {
       Package(config, cacheDir, log)
       out
     }
-  
+
+  private def isLicenseFile(f: File): Boolean =
+    f.getName.toLowerCase match {
+      case "licence" | "licence.txt" | "notice" | "notice.txt" => true
+      case _ => false
+    }
+
+  private def isReadme(f: File): Boolean =
+    f.getName.toLowerCase match {
+      case "readme" | "readme.txt" => true
+      case _ => false
+    }
+
+  private def isSimplyExcludedFile(f: File): Boolean =
+    isLicenseFile(f) || isReadme(f)
+
+  private def isMetaInfJunk(f: File): Boolean =
+    f.getName.toLowerCase match {
+      case "manifest.mf" | "index.list" | "dependencies" => true
+      case name if name.endsWith(".sf") || name.endsWith(".dsa") => true // came from a signed jar; discard the signature
+      case _ => false
+    }
+
   private def assemblyExcludedFiles(bases: Seq[File]): Seq[File] =
     bases flatMap { base =>
-      ((base * "*").get collect {
-        case f if f.getName.toLowerCase == "license" => f
-      }) ++
-      ((base / "META-INF" * "*").get collect {
-        case f if f.getName.toLowerCase == "license" => f
-        case f if f.getName.toLowerCase == "manifest.mf" => f
-      }) 
+      (base * "*").get.filter(isSimplyExcludedFile) ++
+      (base / "META-INF" / "plexus" ** "*").get ++ // maven-specific stuff
+      (base / "META-INF" * "*").get.filter { f => isSimplyExcludedFile(f) || isMetaInfJunk(f) }
     }
   
   private def sha1 = MessageDigest.getInstance("SHA-1")
@@ -186,6 +204,7 @@ object Plugin extends sbt.Plugin {
     mergeStrategy in assembly := { 
         case "reference.conf" => MergeStrategy.concat
         case n if n.startsWith("META-INF/services/") => MergeStrategy.filterDistinctLines
+        case "META-INF/spring.schemas" | "META-INF/spring.handlers" => MergeStrategy.filterDistinctLines
         case _ => MergeStrategy.deduplicate
       },
 
