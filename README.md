@@ -177,6 +177,11 @@ where the default is to
 * `filterDistinctLines` everything below META-INF/services, META-INF/spring.schemas, META-INF/spring.handlers and
 * `deduplicate` the rest.
 
+Custom `MergeStrategy`s can find out where a particular file comes
+from using the `sourceOfFileForMerge` method on `sbtassembly.AssemblyUtils`,
+which takes the temporary directory and one of the files passed into the
+strategy as parameters.
+
 License
 -------
 
