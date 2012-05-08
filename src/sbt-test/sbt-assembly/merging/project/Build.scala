@@ -11,12 +11,16 @@ object B extends Build {
     settings = Defaults.defaultSettings ++ assemblySettings ++ Seq(
       version := "0.1",
       jarName in assembly := "foo.jar",
+      // make sure jars appear in a reproducible order and not just in the
+      // the non-deterministic order the file-system lists them
+      unmanagedJars in Compile ~= (_.sortBy(_.data.getName)),
       mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) ⇒
         {
           case "a" ⇒ MergeStrategy.concat
           case "b" ⇒ MergeStrategy.first
           case "c" ⇒ MergeStrategy.last
           case "d" ⇒ MergeStrategy.filterDistinctLines
+          case "f" ⇒ MergeStrategy.concatWithCaption
           case x   ⇒ old(x)
         }
       },
@@ -28,6 +32,7 @@ object B extends Build {
           mustContain(dir / "c", Seq("1", "3"))
           mustContain(dir / "d", Seq("1", "2", "3"))
           mustContain(dir / "e", Seq("1"))
+          mustContain(dir / "f", Seq("1.jar:f", "", "1", "", "2.jar:f", "", "2", "", "3.jar:f", "", "1", "3", ""))
         }
       }))
 

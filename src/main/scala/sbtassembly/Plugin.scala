@@ -5,8 +5,8 @@ import Keys._
 import scala.collection.mutable
 import scala.io.Source
 import Project.Initialize
-import java.io.{ PrintWriter, FileOutputStream, File }
 import java.security.MessageDigest
+import java.io.{PrintStream, PrintWriter, FileOutputStream, File}
 
 object Plugin extends sbt.Plugin {
   import AssemblyKeys._
@@ -50,6 +50,32 @@ object Plugin extends sbt.Plugin {
         files foreach (f => IO.transfer(f, out))
         (Right(file), "concat")
       } finally {
+        out.close()
+      }
+    }
+
+    val concatWithCaption: MergeStrategy = { (tmp, files) =>
+      val file = File.createTempFile("sbtMergeTarget", ".tmp", tmp)
+      val out = new FileOutputStream(file)
+      val printStream = new PrintStream(out)
+
+      try {
+        files foreach { f =>
+          val sourceDescription = AssemblyUtils.sourceOfFileForMerge(tmp, f) match {
+            case (path, None) => path.getName
+            case (jar, Some(path)) => jar.getName + ":" + path
+          }
+
+          printStream.println(sourceDescription)
+          printStream.println()
+
+          IO.transfer(f, printStream)
+
+          printStream.println()
+        }
+        (Right(file), "concatWithCaption")
+      } finally {
+        printStream.close()
         out.close()
       }
     }
@@ -99,8 +125,8 @@ object Plugin extends sbt.Plugin {
       out
     }
 
-  private def isLicenseFile(f: File): Boolean =
-    f.getName.toLowerCase match {
+  private def isLicenseFile(fileName: String): Boolean =
+    fileName.toLowerCase match {
       case "license" | "licence" | "license.txt" | "licence.txt" | "notice" | "notice.txt" => true
       case _ => false
     }
@@ -112,7 +138,7 @@ object Plugin extends sbt.Plugin {
     }
 
   private def isSimplyExcludedFile(f: File): Boolean =
-    isLicenseFile(f) || isReadme(f)
+    isReadme(f)
 
   private def isMetaInfJunk(f: File): Boolean =
     f.getName.toLowerCase match {
@@ -125,7 +151,7 @@ object Plugin extends sbt.Plugin {
     bases flatMap { base =>
       (base * "*").get.filter(isSimplyExcludedFile) ++
       (base / "META-INF" / "plexus" ** "*").get ++ // maven-specific stuff
-      (base / "META-INF" * "*").get.filter { f => isSimplyExcludedFile(f) || isMetaInfJunk(f) }
+      (base / "META-INF" * "*").get.filter(isMetaInfJunk)
     }
   
   private def sha1 = MessageDigest.getInstance("SHA-1")
@@ -200,6 +226,7 @@ object Plugin extends sbt.Plugin {
         case "reference.conf" => MergeStrategy.concat
         case n if n.startsWith("META-INF/services/") => MergeStrategy.filterDistinctLines
         case "META-INF/spring.schemas" | "META-INF/spring.handlers" => MergeStrategy.filterDistinctLines
+        case f if isLicenseFile(f) => MergeStrategy.concatWithCaption
         case _ => MergeStrategy.deduplicate
       },
 
