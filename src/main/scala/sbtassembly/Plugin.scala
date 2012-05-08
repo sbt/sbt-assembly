@@ -151,7 +151,7 @@ object Plugin extends sbt.Plugin {
     bases flatMap { base =>
       (base * "*").get.filter(isSimplyExcludedFile) ++
       (base / "META-INF" / "plexus" ** "*").get ++ // maven-specific stuff
-      (base / "META-INF" * "*").get.filter(isMetaInfJunk)
+      (base / "META-INF" * "*").get.filter { f => isSimplyExcludedFile(f) || isMetaInfJunk(f) }
     }
   
   private def sha1 = MessageDigest.getInstance("SHA-1")
