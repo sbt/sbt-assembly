@@ -37,7 +37,7 @@ libraryDependencies += Defaults.sbtPluginExtra("com.eed3si9n" % "sbt-assembly" %
 How To Use
 ----------
 
-Or, specify sbt-assembly.git as a dependency in `project/plugins/project/build.scala`:
+Or, specify sbt-assembly.git as a dependency in `project/project/build.scala`:
 
 ```scala
 import sbt._
