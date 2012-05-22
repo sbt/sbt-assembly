@@ -156,6 +156,8 @@ of the following built-in strategies or writing a custom one:
 * `MergeStrategy.error` bails out with an error message
 * `MergeStrategy.deduplicate` is the default described above
 * `MergeStrategy.concat` simply concatenates all conflicting files and includes the result
+* `MergeStrategy.concatWithCaption` similar to `concat` but includes the origin of each file as a caption
+  to each file's content
 * `MergeStrategy.filterDistinctLines` also concatenates, but leaves out duplicates along the way
 
 The mapping of path names to merge strategies is done via the setting
