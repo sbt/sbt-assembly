@@ -1,4 +1,5 @@
 .idea
+.idea_modules
 lib_managed
 target
 project/boot
