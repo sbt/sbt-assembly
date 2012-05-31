@@ -35,6 +35,7 @@ object Plugin extends sbt.Plugin {
    */
   abstract class MergeStrategy extends Function1[(File, String, Seq[File]), Either[String, Seq[(File, String)]]] {
     def name: String
+    def notifyThreshold = 2
   }
 
   // (File, Seq[File]) => (Either[String, File], String)
@@ -94,7 +95,9 @@ object Plugin extends sbt.Plugin {
       val name = "rename"
       def apply(args: (File, String, Seq[File])): Either[String, Seq[(File, String)]] =
         Right(args._3 flatMap { f =>
-          AssemblyUtils.sourceOfFileForMerge(args._1, f) match {
+          if(!f.exists) Seq.empty
+          else if(f.isDirectory && (f ** "*.class").get.nonEmpty) Seq(f -> args._2)
+          else AssemblyUtils.sourceOfFileForMerge(args._1, f) match {
             case (dir, base, path, false) => Seq(f -> args._2)
             case (jar, base, path, true) =>
               val dest = new File(f.getParent, appendJarName(f.getName, jar))
@@ -109,11 +112,14 @@ object Plugin extends sbt.Plugin {
         FileExtension.replaceFirstIn(source, "") +
           "_" + FileExtension.replaceFirstIn(jar.getName, "") +
           FileExtension.findFirstIn(source).getOrElse("")
+
+      override def notifyThreshold = 1
     }
     val discard: MergeStrategy = new MergeStrategy {
       val name = "discard"
       def apply(args: (File, String, Seq[File])): Either[String, Seq[(File, String)]] =
         Right(Nil)   
+      override def notifyThreshold = 1
     }
   }
   
@@ -135,7 +141,9 @@ object Plugin extends sbt.Plugin {
         case (name, files) =>
           val strategy = strats(name)
           if (strategy == MergeStrategy.rename) {
-            log.info("Merging '%s' with strategy '%s'".format(name, strategy.name))
+            if (files.size >= strategy.notifyThreshold) {
+              log.info("Merging '%s' with strategy '%s'".format(name, strategy.name))
+            }
             strategy.apply(tempDir, name, files map (_._1)) match {
               case Right(f)  => f
               case Left(err) => throw new RuntimeException(strategy.name + ": " + err)
@@ -150,7 +158,7 @@ object Plugin extends sbt.Plugin {
         case (name, files) =>
           val strategy = strats(name)
           if (strategy != MergeStrategy.rename) {
-            if ((files.size > 1) || (strategy != MergeStrategy.deduplicate)) {
+            if (files.size >= strategy.notifyThreshold) {
               log.info("Merging '%s' with strategy '%s'".format(name, strategy.name))
             }
             strategy.apply((tempDir, name, files map (_._1))) match {
@@ -209,7 +217,7 @@ object Plugin extends sbt.Plugin {
       dest
     }
     
-    val jarDirs = for(jar <- libsFiltered) yield {
+    val jarDirs = for(jar <- libsFiltered.sorted) yield {
       val jarName = jar.asFile.getName
       log.info("Including %s".format(jarName))
       val hash = sha1name(jar)
@@ -233,14 +241,14 @@ object Plugin extends sbt.Plugin {
       (key.? zipWith rhs)( (x,y) => (x :^: y :^: KNil) map Scoped.hf2( _ getOrElse _ ))
   }
 
-  private val LicenseFile = """(\w+\/)*(license|licence|notice|copying)([.]\w+)?$""".r
+  private val LicenseFile = """(.*/)?(license|licence|notice|copying)([.]\w+)?$""".r
   private def isLicenseFile(fileName: String): Boolean =
     fileName.toLowerCase match {
-      case LicenseFile(x, y, z) => true
+      case LicenseFile(_, _, ext) if ext != ".class" => true // DISLIKE
       case _ => false
     }
 
-  private val ReadMe = """(\w+\/)*(readme)([.]\w+)?$""".r
+  private val ReadMe = """(.*/)?(readme)([.]\w+)?$""".r
   private def isReadme(fileName: String): Boolean =
     fileName.toLowerCase match {
       case ReadMe(x, y, z) => true

@@ -35,6 +35,16 @@ object B extends Build {
           mustContain(dir / "README_1", Seq("1"))
           mustContain(dir / "LICENSE", Seq("resources"))
           mustContain(dir / "LICENSE_1" / "a", Seq("1"))
+          // 80f5a06 -- don't rename License.class
+          mustExist(dir / "com" / "example" / "License.class")
+          // 7ce9509 -- rename things inside META-INF
+          mustContain(dir / "META-INF" / "NOTICE_2.txt", Seq("This is the notice for 2"))
+          mustContain(dir / "META-INF" / "NOTICE_3.txt", Seq("This is the notice for 3"))
+          // 032b3a2 -- Don't rename the directories if they contain
+          // classes; if they don't, don't rename the contents.
+          mustExist(dir / "com" / "example" / "license" / "PublicDomain.class")
+          mustExist(dir / "NOTICE_3" / "README.txt")
+          mustExist(dir / "NOTICE_3" / "LICENSE.txt")
         }
       }))
 
@@ -46,5 +56,8 @@ object B extends Build {
   }
   private def mustNotExist(f: File) {
     if (f.exists) sys.error("file" + f + " exists!")
+  }
+  private def mustExist(f: File) {
+    if (!f.exists) sys.error("file" + f + " does not exist!")
   }
 }
