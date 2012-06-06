@@ -26,6 +26,8 @@ object Plugin extends sbt.Plugin {
     lazy val assembledMappings = TaskKey[File => Seq[(File, String)]]("assembly-assembled-mappings")
     lazy val mergeStrategy     = SettingKey[String => MergeStrategy]("assembly-merge-strategy", "mapping from archive member path to merge strategy")
   }
+
+  lazy val sysFileSep = System.getProperty("file.separator")
   
   /**
    * MergeStrategy is invoked if more than one source file is mapped to the 
@@ -241,17 +243,19 @@ object Plugin extends sbt.Plugin {
       (key.? zipWith rhs)( (x,y) => (x :^: y :^: KNil) map Scoped.hf2( _ getOrElse _ ))
   }
 
-  private val LicenseFile = """(.*/)?(license|licence|notice|copying)([.]\w+)?$""".r
+  lazy val regexSysFileSep = if(sysFileSep.equals("""\""")) """\\""" else sysFileSep
+
+  private val LicenseFile = ("""(.*"""+regexSysFileSep+""")?(license|licence|notice|copying)([.]\w+)?$""").r
   private def isLicenseFile(fileName: String): Boolean =
     fileName.toLowerCase match {
       case LicenseFile(_, _, ext) if ext != ".class" => true // DISLIKE
       case _ => false
     }
 
-  private val ReadMe = """(.*/)?(readme)([.]\w+)?$""".r
+  private val ReadMe = ("""(.*"""+regexSysFileSep+""")?(readme)([.]\w+)?$""").r
   private def isReadme(fileName: String): Boolean =
     fileName.toLowerCase match {
-      case ReadMe(x, y, z) => true
+      case ReadMe(w, x, y, z) => true
       case _ => false
     }
 
@@ -264,21 +268,21 @@ object Plugin extends sbt.Plugin {
     assembledMappings in assembly <<= (assemblyOption in assembly, fullClasspath in assembly, dependencyClasspath in assembly,
         excludedJars in assembly, streams) map {
       (ao, cp, deps, ej, s) => (tempDir: File) => assemblyAssembledMappings(tempDir, cp, deps, ao, ej, s.log) },
-      
+
     mergeStrategy in assembly := { 
       case "reference.conf" =>
         MergeStrategy.concat
       case n if isReadme(n) || isLicenseFile(n) =>
         MergeStrategy.rename
-      case inf if inf.startsWith("META-INF/") =>
-        inf.slice("META-INF/".size, inf.size).toLowerCase match {
+      case inf if inf.startsWith("META-INF" + sysFileSep) =>
+        inf.slice(("META-INF" + sysFileSep).size, inf.size).toLowerCase match {
           case "manifest.mf" | "index.list" | "dependencies" =>
             MergeStrategy.discard
           case n if n.endsWith(".sf") || n.endsWith(".dsa") =>
             MergeStrategy.discard
-          case n if n startsWith "plexus/" =>
+          case n if n startsWith "plexus" + sysFileSep =>
             MergeStrategy.discard
-          case n if n startsWith "services/" =>
+          case n if n startsWith "services" + sysFileSep =>
             MergeStrategy.filterDistinctLines
           case "spring.schemas" | "spring.handlers" =>
             MergeStrategy.filterDistinctLines
