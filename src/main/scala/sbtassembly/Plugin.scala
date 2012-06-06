@@ -255,7 +255,7 @@ object Plugin extends sbt.Plugin {
   private val ReadMe = ("""(.*"""+regexSysFileSep+""")?(readme)([.]\w+)?$""").r
   private def isReadme(fileName: String): Boolean =
     fileName.toLowerCase match {
-      case ReadMe(w, x, y, z) => true
+      case ReadMe(x, y, z) => true
       case _ => false
     }
 
