@@ -26,8 +26,6 @@ object Plugin extends sbt.Plugin {
     lazy val assembledMappings = TaskKey[File => Seq[(File, String)]]("assembly-assembled-mappings")
     lazy val mergeStrategy     = SettingKey[String => MergeStrategy]("assembly-merge-strategy", "mapping from archive member path to merge strategy")
   }
-
-  lazy val sysFileSep = System.getProperty("file.separator")
   
   /**
    * MergeStrategy is invoked if more than one source file is mapped to the 
@@ -243,21 +241,31 @@ object Plugin extends sbt.Plugin {
       (key.? zipWith rhs)( (x,y) => (x :^: y :^: KNil) map Scoped.hf2( _ getOrElse _ ))
   }
 
-  lazy val regexSysFileSep = if(sysFileSep.equals("""\""")) """\\""" else sysFileSep
+  private val LicenseFile = ("""(license|licence|notice|copying)([.]\w+)?$""").r
 
-  private val LicenseFile = ("""(.*"""+regexSysFileSep+""")?(license|licence|notice|copying)([.]\w+)?$""").r
   private def isLicenseFile(fileName: String): Boolean =
     fileName.toLowerCase match {
-      case LicenseFile(_, _, ext) if ext != ".class" => true // DISLIKE
+      case LicenseFile(_, ext) if ext != ".class" => true // DISLIKE
       case _ => false
     }
 
-  private val ReadMe = ("""(.*"""+regexSysFileSep+""")?(readme)([.]\w+)?$""").r
+  private val ReadMe = """(readme)([.]\w+)?$""".r
+
   private def isReadme(fileName: String): Boolean =
     fileName.toLowerCase match {
-      case ReadMe(x, y, z) => true
+      case ReadMe(_, _) => true
       case _ => false
     }
+  private object PathExtractor {
+    private val sysFileSep = System.getProperty("file.separator")
+    def unapply(path: String) = {
+      val split = path.toLowerCase.split(if (sysFileSep.equals( """\""")) """\\""" else sysFileSep)
+      if (split.isEmpty)
+        None
+      else
+        new Some((split.head, split.tail.headOption.getOrElse(""), split.last))
+    }
+  }
 
   lazy val baseAssemblySettings: Seq[sbt.Project.Setting[_]] = Seq(
     assembly <<= (test in assembly, outputPath in assembly, packageOptions in assembly,
@@ -269,25 +277,14 @@ object Plugin extends sbt.Plugin {
         excludedJars in assembly, streams) map {
       (ao, cp, deps, ej, s) => (tempDir: File) => assemblyAssembledMappings(tempDir, cp, deps, ao, ej, s.log) },
 
-    mergeStrategy in assembly := { 
-      case "reference.conf" =>
-        MergeStrategy.concat
-      case n if isReadme(n) || isLicenseFile(n) =>
-        MergeStrategy.rename
-      case inf if inf.startsWith("META-INF" + sysFileSep) =>
-        inf.slice(("META-INF" + sysFileSep).size, inf.size).toLowerCase match {
-          case "manifest.mf" | "index.list" | "dependencies" =>
-            MergeStrategy.discard
-          case n if n.endsWith(".sf") || n.endsWith(".dsa") =>
-            MergeStrategy.discard
-          case n if n startsWith "plexus" + sysFileSep =>
-            MergeStrategy.discard
-          case n if n startsWith "services" + sysFileSep =>
-            MergeStrategy.filterDistinctLines
-          case "spring.schemas" | "spring.handlers" =>
-            MergeStrategy.filterDistinctLines
-          case _ => MergeStrategy.deduplicate
-        }
+    mergeStrategy in assembly := {
+      case "reference.conf" => MergeStrategy.concat
+      case PathExtractor(_, _, filename) if isReadme(filename) || isLicenseFile(filename) => MergeStrategy.rename
+      case PathExtractor("meta-inf", "plexus", _) => MergeStrategy.discard
+      case PathExtractor("meta-inf", "services", _) => MergeStrategy.filterDistinctLines
+      case PathExtractor("meta-inf", _, "manifest.mf" | "index.list" | "dependencies") => MergeStrategy.discard
+      case PathExtractor("meta-inf", _, "spring.schemas" | "spring.handlers") => MergeStrategy.filterDistinctLines
+      case PathExtractor("meta-inf", _, filename) if filename.endsWith(".sf") || filename.endsWith(".dsa")=> MergeStrategy.discard
       case _ => MergeStrategy.deduplicate
     },
 
