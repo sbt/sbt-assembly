@@ -17,8 +17,8 @@ Requirements
 * Simple Build Tool
 * The burning desire to have a simple deploy procedure.
 
-Latest
-------
+Using Published Builds
+----------------------
 
 For sbt 0.11.2 and 0.11.3, add sbt-assembly as a dependency in `project/plugins.sbt`:
 
@@ -34,10 +34,12 @@ For sbt 0.12.0-Beta2, add the following to `project/plugins.sbt`:
 libraryDependencies += Defaults.sbtPluginExtra("com.eed3si9n" % "sbt-assembly" % "0.8.3", "0.12.0-Beta2", "2.9.2")
 ```
 
-How To Use
-----------
+Using Git
+---------
 
-Or, specify sbt-assembly.git as a dependency in `project/project/build.scala`:
+Alternately, you can have sbt checkout and build the plugin's source from version control.
+
+Specify sbt-assembly.git as a dependency in `project/project/build.scala`:
 
 ```scala
 import sbt._
@@ -52,7 +54,14 @@ object Plugins extends Build {
 (You may need to check this project's tags to see what the most recent release
 is. I'm notoriously crap about updating the version numbers in my READMEs.)
 
-Then, add the following in your `build.sbt`:
+Applying the Plugin to a Project (Adding the `assembly` Task)
+-------------------------------------------------------------
+
+First, make sure that you've added the plugin to your build (either the published
+builds or source from Git).
+
+
+Now, add the following in your `build.sbt`:
 
 ```scala
 import AssemblyKeys._ // put this at the top of the file
