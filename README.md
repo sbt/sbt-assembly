@@ -205,7 +205,7 @@ strategy as parameters.
 Development Notes
 -----------------
 
-Please use [global .gitigore](http://help.github.com/ignore-files/) instead of adding editor junk files to `.gitignore`.
+Please use [global .gitignore](http://help.github.com/ignore-files/) instead of adding editor junk files to `.gitignore`.
 
 License
 -------
