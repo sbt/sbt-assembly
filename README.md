@@ -199,6 +199,20 @@ from using the `sourceOfFileForMerge` method on `sbtassembly.AssemblyUtils`,
 which takes the temporary directory and one of the files passed into the
 strategy as parameters.
 
+Publishing
+----------
+
+If you wish to publish your assembled artifact along with the `publish` task
+and all of the other artifacts, you can add an `assembly` classifier (or other):
+
+```
+artifact in (Compile, assembly) ~= { art =>
+  art.copy(`classifier` = Some("assembly"))
+}
+
+addArtifact(artifact in (Compile, assembly), assembly)
+```
+
 Development Notes
 -----------------
 
