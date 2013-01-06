@@ -329,29 +329,25 @@ object Plugin extends sbt.Plugin {
       case _ => MergeStrategy.deduplicate
     },
 
-    packageScala <<= (outputPath in assembly, packageOptions,
+    packageScala <<= (outputPath in packageScala, packageOptions,
         assembledMappings in packageScala, mergeStrategy in assembly,
         assemblyDirectory in assembly, cacheDirectory, streams) map {
       (out, po, am, ms, tempDir, cacheDir, s) => assemblyTask(out, po, am, ms, tempDir, cacheDir, s.log) },
 
-    assembledMappings in packageScala <<= (assemblyOption in assembly, fullClasspath in assembly, dependencyClasspath in assembly,
+    assembledMappings in packageScala <<= (assemblyOption in packageScala, fullClasspath in assembly, dependencyClasspath in assembly,
         excludedJars in assembly, streams) map {
       (ao, cp, deps, ej, s) => (tempDir: File) =>
-        assemblyAssembledMappings(tempDir, cp, deps,
-          ao.copy(includeBin = false, includeScala = true, includeDependency = false),
-          ej, s.log) },
+        assemblyAssembledMappings(tempDir, cp, deps, ao, ej, s.log) },
 
-    packageDependency <<= (outputPath in assembly, packageOptions in assembly,
+    packageDependency <<= (outputPath in packageDependency, packageOptions in assembly,
         assembledMappings in packageDependency, mergeStrategy in assembly,
         assemblyDirectory in assembly, cacheDirectory, streams) map {
       (out, po, am, ms, tempDir, cacheDir, s) => assemblyTask(out, po, am, ms, tempDir, cacheDir, s.log) },
     
-    assembledMappings in packageDependency <<= (assemblyOption in assembly, fullClasspath in assembly, dependencyClasspath in assembly,
+    assembledMappings in packageDependency <<= (assemblyOption in packageDependency, fullClasspath in assembly, dependencyClasspath in assembly,
         excludedJars in assembly, streams) map {
       (ao, cp, deps, ej, s) => (tempDir: File) =>
-        assemblyAssembledMappings(tempDir, cp, deps,
-          ao.copy(includeBin = false, includeScala = false, includeDependency = true),
-          ej, s.log) },
+        assemblyAssembledMappings(tempDir, cp, deps, ao, ej, s.log) },
 
     test <<= test orr (test in Test),
     test in assembly <<= (test in Test),
@@ -361,20 +357,33 @@ object Plugin extends sbt.Plugin {
       (includeBin, includeScala, includeDeps, exclude) =>   
       AssemblyOption(includeBin, includeScala, includeDeps, exclude) 
     },
+    assemblyOption in packageDependency <<= (assemblyOption in assembly) { opt =>
+      opt.copy(includeBin = false, includeScala = true, includeDependency = true)
+    },
+    assemblyOption in packageScala <<= (assemblyOption in assembly) { opt =>
+      opt.copy(includeBin = false, includeScala = true, includeDependency = false)
+    },
     
     packageOptions in assembly <<= (packageOptions in Compile, mainClass in assembly) map {
       (os, mainClass) =>
         mainClass map { s =>
           os find { o => o.isInstanceOf[Package.MainClass] } map { _ => os
           } getOrElse { Package.MainClass(s) +: os }
-        } getOrElse {os}      
+        } getOrElse {os}
     },
     
     assemblyDirectory in assembly <<= cacheDirectory / "assembly",
     outputPath in assembly <<= (target in assembly, jarName in assembly) { (t, s) => t / s },
+    outputPath in packageScala <<= (target in assembly, jarName in packageScala) { (t, s) => t / s },
+    outputPath in packageDependency <<= (target in assembly, jarName in packageDependency) { (t, s) => t / s },
     target in assembly <<= target,
     
     jarName in assembly <<= (jarName in assembly) or (defaultJarName in assembly),
+    jarName in packageScala <<= (jarName in packageScala) or (defaultJarName in packageScala),
+    jarName in packageDependency <<= (jarName in packageDependency) or (defaultJarName in packageDependency),
+
+    defaultJarName in packageScala <<= (scalaVersion) { (scalaVersion) => "scala-library-" + scalaVersion + "-assembly.jar" },
+    defaultJarName in packageDependency <<= (name, version) { (name, version) => name + "-assembly-" + version + "-deps.jar" },
     defaultJarName in assembly <<= (name, version) { (name, version) => name + "-assembly-" + version + ".jar" },
     
     mainClass in assembly <<= mainClass orr (mainClass in Runtime),
