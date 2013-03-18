@@ -4,7 +4,7 @@ name := "sbt-assembly"
 
 organization := "com.eed3si9n"
 
-version := "0.8.6"
+version := "0.8.7-SNAPSHOT"
 
 CrossBuilding.crossSbtVersions := Seq("0.11.3", "0.11.2" ,"0.12")
 
