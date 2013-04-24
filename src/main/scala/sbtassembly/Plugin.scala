@@ -16,6 +16,8 @@ object Plugin extends sbt.Plugin {
     lazy val packageScala      = TaskKey[File]("assembly-package-scala", "Produces the scala artifact.")
     lazy val packageDependency = TaskKey[File]("assembly-package-dependency", "Produces the dependency artifact.")
   
+    lazy val unzipDependency = SettingKey[Boolean]("assemly-unzip-dependency", "Enables (true) or disables (false) unzipping of the dependencies.")
+    lazy val dependencyPath    = SettingKey[Option[String]]("assembly-dependency-path", "Relative path in the ouput jar for dependencies if unzipping is disabled.")
     lazy val assembleArtifact  = SettingKey[Boolean]("assembly-assemble-artifact", "Enables (true) or disables (false) assembling an artifact.")
     lazy val assemblyOption    = SettingKey[AssemblyOption]("assembly-option")
     lazy val jarName           = TaskKey[String]("assembly-jar-name")
@@ -267,8 +269,17 @@ object Plugin extends sbt.Plugin {
       val hash = sha1name(jar)
       IO.write(tempDir / (hash + ".jarName"), jar.getCanonicalPath, IO.utf8, false)
       val dest = tempDir / hash
-      dest.mkdir()
-      IO.unzip(jar, dest)
+      if (ao.unzipDependency) {
+        dest.mkdir()
+        IO.unzip(jar, dest)
+      } else {
+        val fullDest = ao.dependencyPath match {
+          case Some(x) => dest / x
+          case _ => dest
+        }
+        fullDest.mkdir()
+        IO.copyFile(jar, fullDest / jarName)
+      }
       IO.delete(ao.exclude(Seq(dest)))
       dest
     }
@@ -362,10 +373,11 @@ object Plugin extends sbt.Plugin {
     test <<= test or (test in Test),
     test in assembly <<= (test in Test),
     
-    assemblyOption in assembly <<= (assembleArtifact in packageBin,
-        assembleArtifact in packageScala, assembleArtifact in packageDependency, excludedFiles in assembly) {
-      (includeBin, includeScala, includeDeps, exclude) =>   
-      AssemblyOption(includeBin, includeScala, includeDeps, exclude) 
+    assemblyOption in assembly <<= (assembleArtifact in packageBin, assembleArtifact in packageScala,
+        assembleArtifact in packageDependency, unzipDependency in assembly, dependencyPath in assembly,
+        excludedFiles in assembly) {
+      (includeBin, includeScala, includeDeps, unzipDeps, depPath, exclude) =>   
+      AssemblyOption(includeBin, includeScala, includeDeps, unzipDeps, depPath, exclude) 
     },
     assemblyOption in packageDependency <<= (assemblyOption in assembly) { opt =>
       opt.copy(includeBin = false, includeScala = true, includeDependency = true)
@@ -406,7 +418,9 @@ object Plugin extends sbt.Plugin {
     excludedJars in assembly := Nil,
     assembleArtifact in packageBin := true,
     assembleArtifact in packageScala := true,
-    assembleArtifact in packageDependency := true    
+    assembleArtifact in packageDependency := true,
+    unzipDependency in assembly := true,
+    dependencyPath in assembly := None
   )
   
   lazy val assemblySettings: Seq[sbt.Project.Setting[_]] = baseAssemblySettings
@@ -415,4 +429,6 @@ object Plugin extends sbt.Plugin {
 case class AssemblyOption(includeBin: Boolean,
   includeScala: Boolean,
   includeDependency: Boolean,
+  unzipDependency: Boolean,
+  dependencyPath: Option[String],
   exclude: Seq[File] => Seq[File])
