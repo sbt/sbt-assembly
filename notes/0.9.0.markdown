@@ -1,0 +1,18 @@
+### Speed improvements: Additional caching option, new cacheOutput behaviour
+
+* Assembly unzips each dependency jar before re-assembling the contents of each jar (and the build classfiles) into a single jar. Previously this happened again for each assembly run, but now the result of the unzip is cached from run-to-run. This provides good performance improvements, especially for systems with slower IO. The new boolean option `cacheUnzip in assembly` (default `true`) can be set to false to disable this behaviour.
+* In addition, the behaviour of `assemblyCacheOutput` has been modified. Previously, the contents of each dependency jar would be extracted and then each contained file would be sha1 hashed to determine whether the assembly jar needed rebuilding. Now the jar itself is hashed (significantly quicker) to determine whether assembly needs to be re-run.
+* In combination, these two options can reduce the run-time of the second invokation of assembly (when nothing has changed) by up to 5 times on sample test projects.
+
+Example run-times for a large-ish build, with multiple (eleven) projects with assembly target are below. The commands run for each build were: `;clean;package` (untimed) and then three runs of `assembly`:
+
+## 0.9.0
+Run number | No caching | Cache unzip | Cache unzip + cache output
+---- | --- | --- | ---
+1st | 99s | 101s | 85s
+2nd | 119s | 34s | 12s
+3rd | 102s | 32s | 12s
+
+  [83]: https://github.com/sbt/sbt-assembly/pull/83
+  
+  

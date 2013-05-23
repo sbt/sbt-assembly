@@ -4,6 +4,10 @@ version := "0.1"
 
 assemblySettings
 
+assemblyCacheOutput in assembly := true 
+
+assemblyCacheUnzip in assembly := true
+
 jarName in assembly := "foo.jar"
 
 TaskKey[Unit]("check") <<= (crossTarget) map { (crossTarget) =>

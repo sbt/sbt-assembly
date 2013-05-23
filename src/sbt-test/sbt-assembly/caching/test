@@ -1,0 +1,20 @@
+# check if the file gets created
+> clean
+> assembly
+$ exists target/scala-2.9.1/foo.jar
+
+# run to cache the hash, then check it's consistent
+> check
+> checkhash
+$ exists target/scala-2.9.1/jarHash.txt
+> checkhash
+
+> assembly
+$ newer target/scala-2.9.1/foo.jar target/scala-2.9.1/jarHash.txt
+> check
+
+# run again to check that the hash is the same
+# when the unzipped jars are read from cache
+# on disk
+> checkhash
+$ newer target/scala-2.9.1/jarHash.txt target/scala-2.9.1/foo.jar 

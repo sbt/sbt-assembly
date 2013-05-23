@@ -209,8 +209,14 @@ from using the `sourceOfFileForMerge` method on `sbtassembly.AssemblyUtils`,
 which takes the temporary directory and one of the files passed into the
 strategy as parameters.
 
-Cached Output
--------------
+Caching
+-------
+
+By default for performance reasons, the result of unzipping any dependency jars to disk is cached from run-to-run. This feature can be disabled by setting
+
+```scala
+assemblyCacheUnzip in assembly := false
+```
 
 If you wish to cache the fat JAR so its timestamp changes only when the input changes, set the following setting:
 
@@ -218,7 +224,7 @@ If you wish to cache the fat JAR so its timestamp changes only when the input ch
 assemblyCacheOutput in assembly := true
 ```
 
-Currently this feature requires checking the SHA-1 hash of all *.class including that of dependencies, and thus it could take [very long time](https://github.com/sbt/sbt-assembly/issues/68)!
+This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68).
 
 Publishing
 ----------
