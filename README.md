@@ -234,6 +234,12 @@ To make a jar containing only the dependencies, type
 
 NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs/technotes/tools/solaris/java.html#jar), it will ignore `-cp`, so if you have multiple jars you have to use `-cp` and pass the main class: `java -cp "jar1.jar:jar2.jar" Main`
 
+You can also append SHA-1 fingerprint to the assembly file name, this may help you to determine whether it has changed and, for example, if it's necessary to deploy the dependencies,
+
+```scala
+appendContentHash in assembly-package-dependency := true
+```
+
 ### Caching
 
 By default for performance reasons, the result of unzipping any dependency jars to disk is cached from run-to-run. This feature can be disabled by setting:
