@@ -1,0 +1,39 @@
+  [kciesielski]: https://github.com/kciesielski
+  [95]: https://github.com/sbt/sbt-assembly/pull/95
+
+### content hash
+
+sbt-assembly 0.10.0 adds an assembly option called `appendContentHash`, which appends SHA-1 fingerprint to the assembly file name.
+
+    assemblyOption in packageDependency ~= { _.copy(appendContentHash = true) }
+
+This could be used to determine whether the content has changed, and skip dependencies deployment if desired.
+
+    > assemblyPackageDependency
+    [info] Checking every *.class/*.jar file's SHA-1.
+    [info] SHA-1: 174d34affa7e3e3d53acb2138ee4d16d110e36a4
+    [info] Packaging helloworld-assembly-0.1-SNAPSHOT-deps-174d34affa7e3e3d53acb2138ee4d16d110e36a4.jar ...
+    [info] Done packaging.
+
+This feature was contributed by [@kciesielski][kciesielski] as [#95][95].
+
+### sbt-assembly for sbt 0.13
+
+sbt-assembly 0.10.0 is available for sbt 0.13 only.
+
+### breaking changes
+
+`excludedFiles` setting is removed. Use `mergeStrategy in assembly` instead:
+
+    mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
+      {
+        case PathList("application.conf") => MergeStrategy.discard
+        case x => old(x)
+      }
+    }
+
+`assemblyCacheOutput` and `assemblyCacheUnzip` are removed. Use `assemblyOption in assembly` instead:
+
+    assemblyOption in assembly ~= { _.copy(cacheOutput = false) }
+
+    assemblyOption in assembly ~= { _.copy(cacheUnzip = false) }

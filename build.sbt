@@ -4,9 +4,7 @@ name := "sbt-assembly"
 
 organization := "com.eed3si9n"
 
-version := "0.8.8"
-
-CrossBuilding.crossSbtVersions := Seq("0.11.3", "0.11.2" ,"0.12")
+version := "0.10.2"
 
 description := "sbt plugin to create a single fat jar"
 
@@ -22,17 +20,10 @@ publishArtifact in (Compile, packageDoc) := false
 
 publishArtifact in (Compile, packageSrc) := true
 
-// CrossBuilding.scriptedSettings
-ScriptedPlugin.scriptedSettings
-
-scriptedLaunchOpts ++= Seq("-Xmx1024M", "-XX:MaxPermSize=256M")
-
-scriptedBufferLog := false
-
 publishMavenStyle := false
 
 publishTo <<= (version) { version: String =>
-   val scalasbt = "http://scalasbt.artifactoryonline.com/scalasbt/"
+   val scalasbt = "http://repo.scala-sbt.org/scalasbt/sbt-plugin-releases/"
    val (name, u) = if (version.contains("-SNAPSHOT")) ("sbt-plugin-snapshots", scalasbt+"sbt-plugin-snapshots")
                    else ("sbt-plugin-releases", scalasbt+"sbt-plugin-releases")
    Some(Resolver.url(name, url(u))(Resolver.ivyStylePatterns))
@@ -45,4 +36,4 @@ lsSettings
 LsKeys.tags in LsKeys.lsync := Seq("sbt", "jar")
 
 (externalResolvers in LsKeys.lsync) := Seq(
-  "sbt-plugin-releases" at "http://scalasbt.artifactoryonline.com/scalasbt/sbt-plugin-releases")
+  "sbt-plugin-releases" at "http://repo.scala-sbt.org/scalasbt/sbt-plugin-releases")

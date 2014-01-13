@@ -1,0 +1,6 @@
+### bug fixes
+
+- try-catch workaround for jar entries that are unzippable on Windows and Mac. [#90][90] reported by [@psnively][@psnively]
+
+  [90]: https://github.com/sbt/sbt-assembly/issues/90
+  [@psnively]: https://github.com/psnively

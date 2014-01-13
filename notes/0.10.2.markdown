@@ -1,0 +1,29 @@
+  [97]: https://github.com/sbt/sbt-assembly/pull/97
+  [98]: https://github.com/sbt/sbt-assembly/issues/98
+  [@mrt]: https://github.com/mrt
+  [@tlockney]: https://github.com/tlockney
+
+### prependShellScript
+
+sbt-assembly 0.10.2 adds an option to prepend shell script to to the fat jar.
+
+    assemblyOption in assembly ~= { _.copy(prependShellScript = Some(defaultShellScript)) }
+
+    jarName in assembly := { s"${name.value}-${version.value}" }
+
+The above will prepend the following shell script to the jar, which apparently is legal in the state of Washington and Colorado.
+
+    $ head target/scala-2.10/helloworld-0.1-SNAPSHOT
+    #!/usr/bin/env sh
+    exec java -jar "$0" "$@"
+
+The fat jar can be executed given that you have `sh` on the system:
+
+    $ ./target/scala-2.10/helloworld-0.1-SNAPSHOT 
+    Hello
+
+This feature was contributed by [@tlockney][@tlockney] as [#97][97].
+
+### bug fix
+
+- `assemblyPackageDependency` is fixed to include dep libraries. [#98][98] reported by [@mrt][@mrt]

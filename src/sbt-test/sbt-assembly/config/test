@@ -1,6 +1,6 @@
 # check if the file gets created
 > test:assembly
-$ exists target/foo.jar
+$ exists target/scala-2.9.1/foo.jar
 
 # check if it says hello
 > check

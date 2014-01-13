@@ -1,0 +1,14 @@
+# check if the file gets created
+> assembly
+$ exists target/scala-2.10/foo-assembly-0.1.jar
+
+# check if the file gets created
+> assembly-package-dependency
+$ exists target/scala-2.10/foo-assembly-0.1-deps.jar
+
+# check if the file gets created
+> assembly-package-scala
+$ exists target/scala-2.10/scala-library-2.10.2-assembly.jar
+
+# check if it says hello
+> check

@@ -1,0 +1,5 @@
+### performance improvements
+
+sbt-assembly 0.10.1 avoids content hashing of the unzipped items of the dependent library jars. It also skips jar caching done by sbt, since sbt-assembly is already caching the output.
+
+The changes make `assembly` task run more consistently. Using deps-heavy spark as sample project, `assembly` task was run 15 times after a small source change. sbt-assembly 0.10.0 took 19+/-157 seconds (mostly within 20 secs, but going 150+ secs 26% of the runs). On the other hand, sbt-assembly 0.10.1 took 16+/-1 seconds.

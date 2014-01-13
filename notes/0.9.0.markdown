@@ -1,0 +1,28 @@
+### Speed improvements
+
+sbt-assembly unzips each dependency jar before re-assembling the contents of each jar into a fat jar. 0.9.0 intoduces new caching behavior contributed by [@d40cht][@d40cht] (Alex Wilson) as [#83][83]. 
+
+- Previously unzipping happened for each `assembly`, but now the unzipped result is cached (`cacheUnzip in assembly`). This provides good performance improvements.
+- In addition, `assemblyCacheOutput` has been modified so the jar itself is sha1 hashed (significantly quicker), instead of individual contents.
+- In combination, these two options reduces the run-time of the second invocation of `assembly` by up to 5x! (ymmv)
+
+Example run-times for a large-ish build, with multiple (eleven) projects with assembly target are below:
+
+<table>
+  <tr><th>Run number</th><th>No caching</th><th>Cache unzip</th><th>Cache unzip + output</th></tr>
+  <tr><td>1st</td><td>99s</td><td>101s</td><td>85s</td></tr>
+  <tr><td>2nd</td><td>119s</td><td>34s</td><td>12s</td></tr>
+  <tr><td>3rd</td><td>102s</td><td>32s</td><td>12s</td></tr>
+</table>
+
+### Minor bug fixes and enhancements
+
+- `MANIFEST.MF` will now contain organization and version similar to the one created by `package` task. [#79][79] reported by [@rklaehn][@rklaehn].
+- Files named `rootdoc.txt` are concatenated by default to work around Scala 2.10.2-RC1 jars adding `rootdoc.txt`. [#84][84] reported by [@xuwei-k][@xuwei-k].
+
+  [79]: https://github.com/sbt/sbt-assembly/issues/79
+  [83]: https://github.com/sbt/sbt-assembly/pull/83
+  [84]: https://github.com/sbt/sbt-assembly/issues/84
+  [@d40cht]: https://github.com/d40cht
+  [@xuwei-k]: https://github.com/xuwei-k
+  [@rklaehn]: https://github.com/rklaehn

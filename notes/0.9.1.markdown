@@ -1,0 +1,8 @@
+### bug fixes
+
+- fixes directory cache including stale files. [#86][86] reported by [@rich-nguyen][@rich-nguyen]
+- fixes `assembly-package-scala` task. [#87][87]
+
+  [86]: https://github.com/sbt/sbt-assembly/issues/86
+  [87]: https://github.com/sbt/sbt-assembly/issues/87
+  [@rich-nguyen]: https://github.com/rich-nguyen
