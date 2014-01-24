@@ -16,7 +16,7 @@ object Plugin extends sbt.Plugin {
     lazy val packageScala      = TaskKey[File]("assembly-package-scala", "Produces the scala artifact.")
     lazy val packageDependency = TaskKey[File]("assembly-package-dependency", "Produces the dependency artifact.")
   
-    lazy val unzipDependency = SettingKey[Boolean]("assemly-unzip-dependency", "Enables (true) or disables (false) unzipping of the dependencies.")
+    lazy val unzipDependency   = SettingKey[Boolean]("assemly-unzip-dependency", "Enables (true) or disables (false) unzipping of the dependencies.")
     lazy val dependencyPath    = SettingKey[Option[String]]("assembly-dependency-path", "Relative path in the ouput jar for dependencies if unzipping is disabled.")
     lazy val assembleArtifact  = SettingKey[Boolean]("assembly-assemble-artifact", "Enables (true) or disables (false) assembling an artifact.")
     lazy val assemblyOption    = TaskKey[AssemblyOption]("assembly-option")
@@ -464,6 +464,8 @@ object Plugin extends sbt.Plugin {
     assembleArtifact in packageDependency := true,
     mergeStrategy in assembly := defaultMergeStrategy,
     excludedJars in assembly := Nil,
+    unzipDependency in assembly := true,
+    dependencyPath in assembly := None,
     assemblyOption in assembly := {
       val s = streams.value
       AssemblyOption(
@@ -478,8 +480,8 @@ object Plugin extends sbt.Plugin {
         cacheUnzip         = true,
         appendContentHash  = false,
         prependShellScript = None,
-        unzipDependency    = true,
-        dependencyPath     = None)
+        unzipDependency    = (unzipDependency in assembly).value,
+        dependencyPath     = (dependencyPath in assembly).value)
     },
 
     assemblyOption in packageScala := {
