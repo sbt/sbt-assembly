@@ -16,6 +16,8 @@ object Plugin extends sbt.Plugin {
     lazy val packageScala      = TaskKey[File]("assembly-package-scala", "Produces the scala artifact.")
     lazy val packageDependency = TaskKey[File]("assembly-package-dependency", "Produces the dependency artifact.")
   
+    lazy val unzipDependency   = SettingKey[Boolean]("assemly-unzip-dependency", "Enables (true) or disables (false) unzipping of the dependencies.")
+    lazy val dependencyPath    = SettingKey[Option[String]]("assembly-dependency-path", "Relative path in the ouput jar for dependencies if unzipping is disabled.")
     lazy val assembleArtifact  = SettingKey[Boolean]("assembly-assemble-artifact", "Enables (true) or disables (false) assembling an artifact.")
     lazy val assemblyOption    = TaskKey[AssemblyOption]("assembly-option")
     lazy val jarName           = TaskKey[String]("assembly-jar-name")
@@ -328,14 +330,23 @@ object Plugin extends sbt.Plugin {
           if (!ao.cacheUnzip || !jarNamePath.exists || IO.read(jarNamePath) != jar.getCanonicalPath )
           {
             log.info("Including: %s".format(jarName))
-            IO.delete(dest)
-            dest.mkdir()
-            AssemblyUtils.unzip(jar, dest, log)
-            IO.delete(ao.excludedFiles(Seq(dest)))
-            
-            // Write the jarNamePath at the end to minimise the chance of having a
-            // corrupt cache if the user aborts the build midway through
-            IO.write(jarNamePath, jar.getCanonicalPath, IO.utf8, false)
+            if (ao.unzipDependency) {
+              IO.delete(dest)
+              dest.mkdir()
+              AssemblyUtils.unzip(jar, dest, log)
+              IO.delete(ao.excludedFiles(Seq(dest)))
+              
+              // Write the jarNamePath at the end to minimise the chance of having a
+              // corrupt cache if the user aborts the build midway through
+              IO.write(jarNamePath, jar.getCanonicalPath, IO.utf8, false)
+            } else {
+              val fullDest = ao.dependencyPath match {
+                case Some(x) => dest / x
+                case _ => dest
+              }
+              fullDest.mkdir()
+              IO.copyFile(jar, fullDest / jarName)
+            }	
           }
           else log.info("Including from cache: %s".format(jarName))
 
@@ -453,6 +464,8 @@ object Plugin extends sbt.Plugin {
     assembleArtifact in packageDependency := true,
     mergeStrategy in assembly := defaultMergeStrategy,
     excludedJars in assembly := Nil,
+    unzipDependency in assembly := true,
+    dependencyPath in assembly := None,
     assemblyOption in assembly := {
       val s = streams.value
       AssemblyOption(
@@ -466,7 +479,9 @@ object Plugin extends sbt.Plugin {
         cacheOutput        = true,
         cacheUnzip         = true,
         appendContentHash  = false,
-        prependShellScript = None)
+        prependShellScript = None,
+        unzipDependency    = (unzipDependency in assembly).value,
+        dependencyPath     = (dependencyPath in assembly).value)
     },
 
     assemblyOption in packageScala := {
@@ -521,4 +536,6 @@ case class AssemblyOption(assemblyDirectory: File,
   cacheOutput: Boolean = true,
   cacheUnzip: Boolean = true,
   appendContentHash: Boolean = false,
-  prependShellScript: Option[Seq[String]] = None)
+  prependShellScript: Option[Seq[String]] = None,
+  unzipDependency: Boolean,
+  dependencyPath: Option[String])
