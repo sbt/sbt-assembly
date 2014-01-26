@@ -85,6 +85,9 @@ val app = (project in file("app")).
   )
 ```
 
+If you are using `Build.scala`, you also need to add `import sbtassembly.Plugin._`
+in order to gain access to `assemblySettings`.
+
 Now you'll have an awesome new `assembly` task which will compile your project,
 run your tests, and then pack your class files and all your dependencies into a
 single JAR file: `target/scala_X.X.X/projectname-assembly-X.X.X.jar`.
