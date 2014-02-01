@@ -432,7 +432,9 @@ object Plugin extends sbt.Plugin {
     case _ => MergeStrategy.deduplicate
   }
 
-  val defaultShellScript: Seq[String] = Seq("#!/usr/bin/env sh", """exec java -jar "$0" "$@"""") // "
+  val shellScriptHeader: String = "#!/usr/bin/env sh"
+  val defaultShellScript: Seq[String] =  Seq(shellScriptHeader, """exec java -jar "$0" "$@"""") // "
+  val javaOptsShellScript: Seq[String] = Seq(shellScriptHeader, """exec java $JAVA_OPTS -jar "$0" "$@"""") // "
 
   lazy val baseAssemblySettings: Seq[sbt.Def.Setting[_]] = Seq(
     assembly := Assembly.assemblyTask(assembly).value,
