@@ -166,7 +166,7 @@ mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
 
 **NOTE**:
 - `mergeStrategy in assembly` expects a function, you can't do `mergeStrategy in assembly := MergeStrategy.first`!
-- Some files must be discarded or renamed otherwise, you're breaking the zip or legal license. Use the pattern above.
+- Some files must be discarded or renamed, otherwise you're breaking the zip or legal license. Use the pattern above!
 
 By the way, the first case pattern in the above using `PathList(...)` is how you can pick `javax/servlet/*` from the first jar. If the default `MergeStrategy.deduplicate` is not working for you, that likely means you have multiple versions of some library pulled by your dependency graph. The real solution is to fix that dependency graph. You can work around it by `MergeStrategy.first` but don't be surprised when you see `ClassNotFoundException`.
 
