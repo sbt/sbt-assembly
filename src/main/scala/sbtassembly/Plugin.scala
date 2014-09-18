@@ -8,10 +8,12 @@ import Def.Initialize
 import java.io.{IOException, PrintWriter, FileOutputStream, File}
 import java.security.MessageDigest
 
-object Plugin extends sbt.Plugin {
-  import AssemblyKeys._
+object Plugin extends sbt.AutoPlugin {
+  import autoImport._
+  
+  val AssemblyKeys = autoImport
     
-  object AssemblyKeys {
+  object autoImport {
     lazy val assembly          = TaskKey[File]("assembly", "Builds a single-file deployable jar.")
     lazy val packageScala      = TaskKey[File]("assembly-package-scala", "Produces the scala artifact.")
     lazy val packageDependency = TaskKey[File]("assembly-package-dependency", "Produces the dependency artifact.")
@@ -128,7 +130,7 @@ object Plugin extends sbt.Plugin {
               val dest = new File(f.getParent, appendJarName(f.getName, jar))
               IO.move(f, dest)
               val result = Seq(dest -> appendJarName(path, jar))
-              if (dest.isDirectory) ((dest ** (-DirectoryFilter))) x relativeTo(base)
+              if (dest.isDirectory) ((dest ** (-DirectoryFilter))) pair relativeTo(base)
               else result
           }
         })
