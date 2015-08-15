@@ -21,7 +21,7 @@ Setup
 
 ### Using Published Plugin
 
-For sbt 0.13.6+ add sbt-assembly as a dependency in `project/assembly.sbt`:
+For sbt 0.13.6+ add sbt-assembly as a dependency in `project/plugins.sbt`:
 
 ```scala
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.13.0")
