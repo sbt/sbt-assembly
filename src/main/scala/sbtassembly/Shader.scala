@@ -4,7 +4,6 @@ import java.io.File
 
 import org.pantsbuild.jarjar._
 import org.pantsbuild.jarjar.util.EntryStruct
-
 import sbt._
 
 case class ShadeRule(shadePattern: ShadePattern, targets: Seq[ShadeTarget] = Seq()) {
@@ -14,6 +13,8 @@ case class ShadeRule(shadePattern: ShadePattern, targets: Seq[ShadeTarget] = Seq
     this.copy(targets = targets :+ ShadeTarget(inAll = true))
   def inProject: ShadeRule =
     this.copy(targets = targets :+ ShadeTarget(inProject = true))
+  def matches(predicate: ModuleID => Boolean): ShadeRule =
+    this.copy(targets = targets :+ MatchingShadeTarget(predicate))
 
   private[sbtassembly] def isApplicableTo(mod: ModuleID): Boolean =
     targets.exists(_.isApplicableTo(mod))
@@ -30,6 +31,8 @@ sealed trait ShadePattern {
     ShadeRule(this, Seq(ShadeTarget(inAll = true)))
   def inProject: ShadeRule =
     ShadeRule(this, Seq(ShadeTarget(inProject = true)))
+  def matches(predicate: ModuleID => Boolean): ShadeRule =
+    ShadeRule(this, Seq(MatchingShadeTarget(predicate)))
 }
 
 object ShadeRule {
@@ -55,6 +58,14 @@ private[sbtassembly] case class ShadeTarget(
     })
 }
 
+object MatchingShadeTarget {
+  def apply(predicate: ModuleID => Boolean): MatchingShadeTarget = new MatchingShadeTarget(predicate)
+}
+
+private[sbtassembly] class MatchingShadeTarget(predicate: ModuleID => Boolean) extends ShadeTarget {
+  override private[sbtassembly] def isApplicableTo(mod: ModuleID): Boolean = predicate(mod)
+}
+
 private[sbtassembly] object Shader {
   def shadeDirectory(rules: Seq[ShadeRule], dir: File, log: Logger, level: Level.Value): Unit = {
     val jjrules = rules flatMap { r => r.shadePattern match {
@@ -78,7 +89,8 @@ private[sbtassembly] object Shader {
           jrule
         }
       case _ => Nil
-    }}
+    }
+    }
 
     val proc = JJProcessor(jjrules, verbose = level == Level.Debug, true)
 
