@@ -13,7 +13,7 @@ case class ShadeRule(shadePattern: ShadePattern, targets: Seq[ShadeTarget] = Seq
     this.copy(targets = targets :+ ShadeTarget(inAll = true))
   def inProject: ShadeRule =
     this.copy(targets = targets :+ ShadeTarget(inProject = true))
-  def matches(predicate: ModuleID => Boolean): ShadeRule =
+  def ifMatches(predicate: ModuleID => Boolean): ShadeRule =
     this.copy(targets = targets :+ MatchingShadeTarget(predicate))
 
   private[sbtassembly] def isApplicableTo(mod: ModuleID): Boolean =
@@ -31,7 +31,7 @@ sealed trait ShadePattern {
     ShadeRule(this, Seq(ShadeTarget(inAll = true)))
   def inProject: ShadeRule =
     ShadeRule(this, Seq(ShadeTarget(inProject = true)))
-  def matches(predicate: ModuleID => Boolean): ShadeRule =
+  def ifMatches(predicate: ModuleID => Boolean): ShadeRule =
     ShadeRule(this, Seq(MatchingShadeTarget(predicate)))
 }
 
