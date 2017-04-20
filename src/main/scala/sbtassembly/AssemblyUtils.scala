@@ -1,7 +1,7 @@
 package sbtassembly
 
 import sbt._
-import Using._
+import sbt.io.Using._
 import java.io.{File, InputStream}
 import java.util.zip.ZipInputStream
 import scala.collection.mutable.HashSet

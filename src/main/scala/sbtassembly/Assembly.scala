@@ -14,7 +14,9 @@ object Assembly {
 
   def apply(out0: File, ao: AssemblyOption, po: Seq[PackageOption], mappings: Seq[MappingSet],
       cacheDir: File, log: Logger): File = {
-    import Tracked.{inputChanged, outputChanged}
+    import Tracked.inputChanged
+    // This is a workaround for missing outputChanged
+    import TrackedFix.outputChanged
     import Types.:+:
     import Cache._
     import FileInfo.{hash, exists}
@@ -47,7 +49,7 @@ object Assembly {
         tmpFile.delete()
         IO.append(outPath, jarBytes)
         try {
-          Seq("chmod", "+x", outPath.toString).!
+          sys.process.Process("chmod", Seq("+x", outPath.toString)).!
         }
         catch {
           case e: IOException => log.warn("Could not run 'chmod +x' on jarfile. Perhaps chmod command is not available?")
@@ -71,6 +73,7 @@ object Assembly {
     }
     lazy val out = if (ao.appendContentHash) doAppendContentHash(inputs, out0, log)
                    else out0
+    import CacheImplicits._
     val cachedMakeJar = inputChanged(cacheDir / "assembly-inputs") { (inChanged, inputs: Seq[Byte]) =>
       outputChanged(cacheDir / "assembly-outputs") { (outChanged, jar: PlainFileInfo) =>
         if (inChanged) {
@@ -156,7 +159,7 @@ object Assembly {
   // which jars exactly belong to the deps for packageDependency option.
   def assembleMappings(classpath: Classpath, dependencies: Classpath,
       ao: AssemblyOption, log: Logger): Vector[MappingSet] = {
-    import sbt.classpath.ClasspathUtilities
+    import sbt.internal.inc.classpath.ClasspathUtilities
     val tempDir = ao.assemblyDirectory
     if (!ao.cacheUnzip) IO.delete(tempDir)
     if (!tempDir.exists) tempDir.mkdir()

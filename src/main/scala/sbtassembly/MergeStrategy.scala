@@ -107,7 +107,7 @@ object MergeStrategy {
             val dest = new File(f.getParent, appendJarName(f.getName, jar))
             IO.move(f, dest)
             val result = Seq(dest -> appendJarName(path, jar))
-            if (dest.isDirectory) ((dest ** (-DirectoryFilter))) pair relativeTo(base)
+            if (dest.isDirectory) ((dest ** (-DirectoryFilter))) pair Path.relativeTo(base)
             else result
         }
       })
