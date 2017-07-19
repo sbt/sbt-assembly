@@ -1,1 +1,1 @@
-addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.8.0")
+addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3")
