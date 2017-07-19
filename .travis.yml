@@ -3,34 +3,25 @@ sudo: false
 
 language: scala
 
-# These directories are cached to S3 at the end of the build
-cache:
-  directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/scala-$TRAVIS_SCALA_VERSION
+matrix:
+  include:
+  - env: SBT_VERSION="0.13.15"
+    jdk: openjdk7
+    scala: 2.10.6
 
-# This is an sbt plugin, so this section is for demo purpose
-scala:
-   - 2.10.4
-
-jdk:
-  - openjdk7
-
-env:
-  # This splits the build into two parts
-  matrix:
-    - TEST_COMMAND="scripted sbt-assembly/*"
-    - TEST_COMMAND="scripted merging/* caching/* shading/*"
+  - env: SBT_VERSION="1.0.0-RC2"
+    jdk: oraclejdk8
+    scala: 2.12.2
 
 script:
-  - sbt ++$TRAVIS_SCALA_VERSION -Dfile.encoding=UTF8 -J-XX:ReservedCodeCacheSize=256M "$TEST_COMMAND"
+  - sbt -Dfile.encoding=UTF8 -J-XX:ReservedCodeCacheSize=256M ++$TRAVIS_SCALA_VERSION "^^${SBT_VERSION}" test scripted
 
   # Tricks to avoid unnecessary cache updates
   - find $HOME/.sbt -name "*.lock" | xargs rm
   - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 
-notifications:
-  email:
-    recipients:
-      secure: "XQ1aQRScPUO2N4clkbp8NIw6SMjDhL5Wj1/PoVgYS3Bml/zFlyJ9Am6Nk1nIwbKPXL4fByVwQ9Wikqtawk4uXm+L7amJbmbDyargCHRGIfbWqnSuMYUtNa4oUjzj3zJRsjUQ35SmObyMQ8vrqwBmhUk5y8KoTdbQndaQTtKEfDA="
-    on_success: always # default: change
+# These directories are cached to S3 at the end of the build
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/scala-$TRAVIS_SCALA_VERSION
