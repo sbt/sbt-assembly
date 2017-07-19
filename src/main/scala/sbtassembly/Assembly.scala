@@ -14,9 +14,7 @@ object Assembly {
 
   def apply(out0: File, ao: AssemblyOption, po: Seq[PackageOption], mappings: Seq[MappingSet],
       cacheDir: File, log: Logger): File = {
-    import Tracked.inputChanged
-    // This is a workaround for missing outputChanged
-    import TrackedFix.outputChanged
+    import Tracked.{ inputChanged, outputChanged }
     import Types.:+:
     import Cache._
     import FileInfo.{hash, exists}
