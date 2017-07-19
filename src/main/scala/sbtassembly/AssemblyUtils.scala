@@ -1,11 +1,12 @@
 package sbtassembly
 
 import sbt._
-import sbt.io.Using._
 import java.io.{File, InputStream}
 import java.util.zip.ZipInputStream
 import scala.collection.mutable.HashSet
 import ErrorHandling.translate
+import PluginCompat._
+import Using._
 
 object AssemblyUtils {
   private val PathRE = "([^/]+)/(.*)".r

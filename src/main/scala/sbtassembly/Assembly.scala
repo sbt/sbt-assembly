@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import java.io.{IOException, PrintWriter, FileOutputStream, File}
 import scala.collection.mutable
 import Def.Initialize
+import PluginCompat._
 
 object Assembly {
   import AssemblyPlugin.autoImport.{ Assembly => _, _ }
@@ -157,7 +158,6 @@ object Assembly {
   // which jars exactly belong to the deps for packageDependency option.
   def assembleMappings(classpath: Classpath, dependencies: Classpath,
       ao: AssemblyOption, log: Logger): Vector[MappingSet] = {
-    import sbt.internal.inc.classpath.ClasspathUtilities
     val tempDir = ao.assemblyDirectory
     if (!ao.cacheUnzip) IO.delete(tempDir)
     if (!tempDir.exists) tempDir.mkdir()
