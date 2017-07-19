@@ -1,3 +1,5 @@
+scalaVersion := "2.10.6"
+
 crossPaths := false
 
 assemblyJarName in assembly := "assembly.jar"
