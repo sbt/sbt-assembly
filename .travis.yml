@@ -5,9 +5,9 @@ language: scala
 
 matrix:
   include:
-  - env: SBT_VERSION="0.13.15"
+  - env: SBT_VERSION="0.13.17"
     jdk: openjdk7
-    scala: 2.10.6
+    scala: 2.10.7
 
   - env: SBT_VERSION="1.0.4"
     jdk: oraclejdk8
