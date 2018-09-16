@@ -14,7 +14,7 @@ matrix:
     scala: 2.12.6
 
   - env: SBT_VERSION="1.2.1"
-    jdk: oraclejdk9
+    jdk: oraclejdk10
     scala: 2.12.6
 
 script:
