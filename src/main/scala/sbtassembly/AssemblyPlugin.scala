@@ -5,7 +5,7 @@ import Keys._
 
 object AssemblyPlugin extends sbt.AutoPlugin {
   override def requires = plugins.JvmPlugin
-  override def trigger = allRequirements
+  override def trigger = noTrigger
 
   object autoImport extends AssemblyKeys {
     val Assembly = sbtassembly.Assembly
