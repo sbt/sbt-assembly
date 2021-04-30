@@ -46,20 +46,20 @@ lazy val commonSettings = Seq(
   version := "0.1-SNAPSHOT",
   organization := "com.example",
   scalaVersion := "2.10.1",
-  test in assembly := {}
+  assembly / test := {}
 )
 
 lazy val app = (project in file("app")).
   settings(commonSettings: _*).
   settings(
-    mainClass in assembly := Some("com.example.Main"),
+    assembly / mainClass := Some("com.example.Main"),
     // more settings here ...
   )
 
 lazy val utils = (project in file("utils")).
   settings(commonSettings: _*).
   settings(
-    assemblyJarName in assembly := "utils.jar",
+    assembly / assemblyJarName := "utils.jar",
     // more settings here ...
   )
 ```
@@ -86,25 +86,25 @@ Here is the list of the keys you can rewire for `assembly` task.
 For example the name of the jar can be set as follows in build.sbt:
 
 ```scala
-assemblyJarName in assembly := "something.jar"
+assembly / assemblyJarName := "something.jar"
 ```
 
 To skip the test during assembly,
 
 ```scala
-test in assembly := {}
+assembly / test := {}
 ```
 
 To set an explicit main class,
 
 ```scala
-mainClass in assembly := Some("com.example.Main")
+assembly / mainClass := Some("com.example.Main")
 ```
 
 Excluding an explicit main class from your assembly requires something a little bit different though
 
 ```
-packageOptions in assembly ~= { pos =>
+assembly / packageOptions ~= { pos =>
   pos.filterNot { po =>
     po.isInstanceOf[Package.MainClass]
   }
@@ -132,20 +132,20 @@ The mapping of path names to merge strategies is done via the setting
 `assemblyMergeStrategy` which can be augmented as follows:
 
 ```scala
-assemblyMergeStrategy in assembly := {
+assembly / assemblyMergeStrategy := {
   case PathList("javax", "servlet", xs @ _*)         => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
   case "application.conf"                            => MergeStrategy.concat
   case "unwanted.txt"                                => MergeStrategy.discard
   case x =>
-    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    val oldStrategy = (assembly / assemblyMergeStrategy).value
     oldStrategy(x)
 }
 ```
 
 **NOTE**:
-- `assemblyMergeStrategy in assembly` expects a function. You can't do `assemblyMergeStrategy in assembly := MergeStrategy.first`!
-- Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(assemblyMergeStrategy in assembly)` as the above pattern matching example.
+- `assembly / assemblyMergeStrategy` expects a function. You can't do `assembly / assemblyMergeStrategy := MergeStrategy.first`!
+- Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(assembly / assemblyMergeStrategy)` as the above pattern matching example.
 
 By the way, the first case pattern in the above using `PathList(...)` is how you can pick `javax/servlet/*` from the first jar. If the default `MergeStrategy.deduplicate` is not working for you, that likely means you have multiple versions of some library pulled by your dependency graph. The real solution is to fix that dependency graph. You can work around it by `MergeStrategy.first` but don't be surprised when you see `ClassNotFoundException`.
 
@@ -194,7 +194,7 @@ sbt-assembly can shade classes from your projects or from the library dependenci
 Backed by [Jar Jar Links](https://code.google.com/archive/p/jarjar/wikis/CommandLineDocs.wiki), bytecode transformation (via ASM) is used to change references to the renamed classes.
 
 ```scala
-    assemblyShadeRules in assembly := Seq(
+    assembly / assemblyShadeRules := Seq(
       ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inAll
     )
 ```
@@ -214,7 +214,7 @@ The `rename` rules takes a vararg of String pairs in `<pattern> -> <result>` for
 Instead of `.inAll`, call `.inProject` to match your project source, or call `.inLibrary("commons-io" % "commons-io" % "2.4", ...)` to match specific library dependencies. `inProject` and `inLibrary(...)` can be chained.
 
 ```scala
-    assemblyShadeRules in assembly := Seq(
+    assembly/ assemblyShadeRules := Seq(
       ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inLibrary("commons-io" % "commons-io" % "2.4", ...).inProject
     )
 ```
@@ -226,7 +226,7 @@ The `ShadeRule.keep` rule marks all matched classes as "roots". If any keep rule
 To see the verbose output for shading:
 
 ```scala
-    logLevel in assembly := Level.Debug
+    assembly / logLevel := Level.Debug
 ```
 
 #### Scala libraries
@@ -260,7 +260,7 @@ Maven defines ["provided"](http://maven.apache.org/guides/introduction/introduct
 The dependency will be part of compilation and test, but excluded from the runtime. If you're using Spark and want to include "provided" dependencies back to `run`, [@douglaz](https://github.com/douglaz) has come up with a one-liner solution on StackOverflow [sbt: how can I add "provided" dependencies back to run/test tasks' classpath?](http://stackoverflow.com/a/21803413/3827):
 
 ```scala
-run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in (Compile, run), runner in (Compile, run)).evaluated
+Compile / run := Defaults.runTask(Compile / fullClasspath, Compile / run / mainClass, Compile / run / runner).evaluated
 ```
 
 ### Exclude specific transitive deps
@@ -304,10 +304,10 @@ libraryDependencies ~= { _ map {
 To exclude specific files, customize merge strategy:
 
 ```scala
-assemblyMergeStrategy in assembly := {
+assembly / assemblyMergeStrategy := {
   case PathList("about.html") => MergeStrategy.rename
   case x =>
-    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    val oldStrategy = (assembly / assemblyMergeStrategy).value
     oldStrategy(x)
 }
 ```
@@ -321,7 +321,7 @@ To make a JAR file containing only the external dependencies, type
 This is intended to be used with a JAR that only contains your project
 
 ```scala
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false, includeDependency = false)
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false, includeDependency = false)
 ```
 
 NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs/technotes/tools/solaris/java.html#jar), it will ignore `-cp`, so if you have multiple JAR files you have to use `-cp` and pass the main class: `java -cp "jar1.jar:jar2.jar" Main`
@@ -331,7 +331,7 @@ NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs
 To exclude Scala library (JARs that start with `scala-` and are included in the binary Scala distribution) to run with `scala` command,
 
 ```scala
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false)
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false)
 ```
 
 ### assemblyExcludedJars
@@ -339,8 +339,8 @@ assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeSca
 If all efforts fail, here's a way to exclude JAR files:
 
 ```scala
-assemblyExcludedJars in assembly := { 
-  val cp = (fullClasspath in assembly).value
+assembly / assemblyExcludedJars := { 
+  val cp = (assembly / fullClasspath).value
   cp filter {_.data.getName == "compile-0.1.0.jar"}
 }
 ```
@@ -353,7 +353,7 @@ Other Things
 You can also append SHA-1 fingerprint to the assembly file name, this may help you to determine whether it has changed and, for example, if it's necessary to deploy the dependencies,
 
 ```scala
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(appendContentHash = true)
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(appendContentHash = true)
 ```
 
 ### Caching
@@ -361,13 +361,13 @@ assemblyOption in assembly := (assemblyOption in assembly).value.copy(appendCont
 By default for performance reasons, the result of unzipping any dependency JAR files to disk is cached from run-to-run. This feature can be disabled by setting:
 
 ```scala
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(cacheUnzip = false)
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheUnzip = false)
 ```
 
 In addition the fat JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
 
 ```scala
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(cacheOutput = false)
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheOutput = false)
 ```
 
 ### Prepending a launch script
@@ -377,9 +377,9 @@ Your can prepend a launch script to the fat jar. This script will be a valid she
 ```scala
 import sbtassembly.AssemblyPlugin.defaultUniversalScript
 
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(prependShellScript = Some(defaultUniversalScript(shebang = false)))
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(prependShellScript = Some(defaultUniversalScript(shebang = false)))
 
-assemblyJarName in assembly := s"${name.value}-${version.value}"
+assembly / assemblyJarName := s"${name.value}-${version.value}"
 ```
 
 This will prepend the following shell script to the jar.
@@ -402,9 +402,9 @@ You can also choose to prepend just the shell script to the fat jar as follows:
 ```scala
 import sbtassembly.AssemblyPlugin.defaultShellScript
 
-assemblyOption in assembly := (assemblyOption in assembly).value.copy(prependShellScript = Some(defaultShellScript))
+assembly / assemblyOption := (assembly / assemblyOption).value.copy(prependShellScript = Some(defaultShellScript))
 
-assemblyJarName in assembly := s"${name.value}-${version.value}"
+assembly / assemblyJarName := s"${name.value}-${version.value}"
 ```
 
 
@@ -415,12 +415,12 @@ Publishing fat JARs out to the world is discouraged because non-modular JARs cau
 and all of the other artifacts, add an `assembly` classifier (or other):
 
 ```scala
-artifact in (Compile, assembly) := {
-  val art = (artifact in (Compile, assembly)).value
+Compile / assembly / artifact := {
+  val art = (Compile / assembly / artifact).value
   art.withClassifier(Some("assembly"))
 }
 
-addArtifact(artifact in (Compile, assembly), assembly)
+addArtifact(Compile / assembly / artifact, assembly)
 ```
 
 ### Q: Despite the concerned friends, I still want publish fat JARs. What advice do you have?
@@ -433,14 +433,14 @@ lazy val fatJar = project
   .enablePlugins(AssemblyPlugin)
   .settings(
     depend on the good stuff
-    skip in publish := true
+    publish / skip := true
   )
 
 lazy val cosmetic = project
   .settings(
     name := "shaded-something",
     // I am sober. no dependencies.
-    packageBin in Compile := (assembly in (fatJar, Compile)).value
+    Compile / packageBin := (fatJar / Compile / assembly).value
   )
 ```
 
