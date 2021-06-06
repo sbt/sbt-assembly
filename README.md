@@ -42,24 +42,25 @@ See [migration guide](Migration.md) for details on how to upgrade from older sbt
 For example, here's a multi-project `build.sbt`:
 
 ```scala
+ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / organization := "com.example"
+ThisBuild / scalaVersion := "2.13.6"
+
 lazy val commonSettings = Seq(
-  version := "0.1-SNAPSHOT",
-  organization := "com.example",
-  scalaVersion := "2.10.1",
-  assembly / test := {}
+  Compile / assembly / test := {}
 )
 
-lazy val app = (project in file("app")).
-  settings(commonSettings: _*).
-  settings(
-    assembly / mainClass := Some("com.example.Main"),
+lazy val app = (project in file("app"))
+  .settings(commonSettings)
+  .settings(
+    Compile / assembly / mainClass := Some("com.example.Main"),
     // more settings here ...
   )
 
-lazy val utils = (project in file("utils")).
-  settings(commonSettings: _*).
-  settings(
-    assembly / assemblyJarName := "utils.jar",
+lazy val utils = (project in file("utils"))
+  .settings(commonSettings)
+  .settings(
+    Compile / assembly / assemblyJarName := "utils.jar",
     // more settings here ...
   )
 ```
@@ -86,25 +87,25 @@ Here is the list of the keys you can rewire for `assembly` task.
 For example the name of the jar can be set as follows in build.sbt:
 
 ```scala
-assembly / assemblyJarName := "something.jar"
+Compile / assembly / assemblyJarName := "something.jar"
 ```
 
 To skip the test during assembly,
 
 ```scala
-assembly / test := {}
+Compile / assembly / test := {}
 ```
 
 To set an explicit main class,
 
 ```scala
-assembly / mainClass := Some("com.example.Main")
+Compile / assembly / mainClass := Some("com.example.Main")
 ```
 
 Excluding an explicit main class from your assembly requires something a little bit different though
 
 ```
-assembly / packageOptions ~= { pos =>
+Compile / assembly / packageOptions ~= { pos =>
   pos.filterNot { po =>
     po.isInstanceOf[Package.MainClass]
   }
@@ -132,7 +133,7 @@ The mapping of path names to merge strategies is done via the setting
 `assemblyMergeStrategy` which can be augmented as follows:
 
 ```scala
-assembly / assemblyMergeStrategy := {
+Compile / assembly / assemblyMergeStrategy := {
   case PathList("javax", "servlet", xs @ _*)         => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
   case "application.conf"                            => MergeStrategy.concat
@@ -144,15 +145,15 @@ assembly / assemblyMergeStrategy := {
 ```
 
 **NOTE**:
-- `assembly / assemblyMergeStrategy` expects a function. You can't do `assembly / assemblyMergeStrategy := MergeStrategy.first`!
-- Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(assembly / assemblyMergeStrategy)` as the above pattern matching example.
+- `Compile / assembly / assemblyMergeStrategy` expects a function. You can't do `Compile / assembly / assemblyMergeStrategy := MergeStrategy.first`!
+- Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(Compile / assembly / assemblyMergeStrategy)` as the above pattern matching example.
 
 By the way, the first case pattern in the above using `PathList(...)` is how you can pick `javax/servlet/*` from the first jar. If the default `MergeStrategy.deduplicate` is not working for you, that likely means you have multiple versions of some library pulled by your dependency graph. The real solution is to fix that dependency graph. You can work around it by `MergeStrategy.first` but don't be surprised when you see `ClassNotFoundException`.
 
 Here is the default:
 
 ```scala
-  val defaultMergeStrategy: String => MergeStrategy = { 
+  val defaultMergeStrategy: String => MergeStrategy = {
     case x if Assembly.isConfigFile(x) =>
       MergeStrategy.concat
     case PathList(ps @ _*) if Assembly.isReadme(ps.last) || Assembly.isLicenseFile(ps.last) =>
@@ -194,7 +195,7 @@ sbt-assembly can shade classes from your projects or from the library dependenci
 Backed by [Jar Jar Links](https://code.google.com/archive/p/jarjar/wikis/CommandLineDocs.wiki), bytecode transformation (via ASM) is used to change references to the renamed classes.
 
 ```scala
-    assembly / assemblyShadeRules := Seq(
+    Compile / assembly / assemblyShadeRules := Seq(
       ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inAll
     )
 ```
@@ -214,7 +215,7 @@ The `rename` rules takes a vararg of String pairs in `<pattern> -> <result>` for
 Instead of `.inAll`, call `.inProject` to match your project source, or call `.inLibrary("commons-io" % "commons-io" % "2.4", ...)` to match specific library dependencies. `inProject` and `inLibrary(...)` can be chained.
 
 ```scala
-    assembly/ assemblyShadeRules := Seq(
+    Compile / assembly/ assemblyShadeRules := Seq(
       ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inLibrary("commons-io" % "commons-io" % "2.4", ...).inProject
     )
 ```
@@ -226,7 +227,7 @@ The `ShadeRule.keep` rule marks all matched classes as "roots". If any keep rule
 To see the verbose output for shading:
 
 ```scala
-    assembly / logLevel := Level.Debug
+    Compile / assembly / logLevel := Level.Debug
 ```
 
 #### Scala libraries
@@ -304,7 +305,7 @@ libraryDependencies ~= { _ map {
 To exclude specific files, customize merge strategy:
 
 ```scala
-assembly / assemblyMergeStrategy := {
+Compile / assembly / assemblyMergeStrategy := {
   case PathList("about.html") => MergeStrategy.rename
   case x =>
     val oldStrategy = (assembly / assemblyMergeStrategy).value
@@ -321,7 +322,7 @@ To make a JAR file containing only the external dependencies, type
 This is intended to be used with a JAR that only contains your project
 
 ```scala
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false, includeDependency = false)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false, includeDependency = false)
 ```
 
 NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs/technotes/tools/solaris/java.html#jar), it will ignore `-cp`, so if you have multiple JAR files you have to use `-cp` and pass the main class: `java -cp "jar1.jar:jar2.jar" Main`
@@ -331,7 +332,7 @@ NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs
 To exclude Scala library (JARs that start with `scala-` and are included in the binary Scala distribution) to run with `scala` command,
 
 ```scala
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false)
 ```
 
 ### assemblyExcludedJars
@@ -339,7 +340,7 @@ assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala
 If all efforts fail, here's a way to exclude JAR files:
 
 ```scala
-assembly / assemblyExcludedJars := { 
+Compile / assembly / assemblyExcludedJars := {
   val cp = (assembly / fullClasspath).value
   cp filter {_.data.getName == "compile-0.1.0.jar"}
 }
@@ -353,7 +354,7 @@ Other Things
 You can also append SHA-1 fingerprint to the assembly file name, this may help you to determine whether it has changed and, for example, if it's necessary to deploy the dependencies,
 
 ```scala
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(appendContentHash = true)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(appendContentHash = true)
 ```
 
 ### Caching
@@ -361,13 +362,13 @@ assembly / assemblyOption := (assembly / assemblyOption).value.copy(appendConten
 By default for performance reasons, the result of unzipping any dependency JAR files to disk is cached from run-to-run. This feature can be disabled by setting:
 
 ```scala
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheUnzip = false)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheUnzip = false)
 ```
 
 In addition the fat JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
 
 ```scala
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheOutput = false)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheOutput = false)
 ```
 
 ### Prepending a launch script
@@ -402,12 +403,10 @@ You can also choose to prepend just the shell script to the fat jar as follows:
 ```scala
 import sbtassembly.AssemblyPlugin.defaultShellScript
 
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(prependShellScript = Some(defaultShellScript))
+Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(prependShellScript = Some(defaultShellScript))
 
-assembly / assemblyJarName := s"${name.value}-${version.value}"
+Compile / assembly / assemblyJarName := s"${name.value}-${version.value}"
 ```
-
-
 
 ### Publishing (Not Recommended)
 
