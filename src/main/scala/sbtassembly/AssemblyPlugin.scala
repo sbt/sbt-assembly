@@ -69,7 +69,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assembledMappings in assemblyPackageDependency  := Assembly.assembledMappingsTask(assemblyPackageDependency).value,
 
     // test
-    test in assembly := (test in Test).value,
+    test in assembly := { () },
     test in assemblyPackageScala := (test in assembly).value,
     test in assemblyPackageDependency := (test in assembly).value,
 
