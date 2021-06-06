@@ -12,7 +12,7 @@ lazy val testmerge = (project in file(".")).
       case "f" => MergeStrategy.discard
       case PathList("x", "y") => MergeStrategy.discard
       case x   =>
-        val oldStrategy = (mergeStrategy in assembly).value
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
     TaskKey[Unit]("check") := {
