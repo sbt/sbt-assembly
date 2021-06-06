@@ -59,7 +59,7 @@ object AssemblyUtils {
           //log.debug("Extracting zip entry '" + name + "' to '" + target + "'")
 
           try {
-            if(entry.isDirectory)
+            if (entry.isDirectory)
               IO.createDirectory(target)
             else
             {
@@ -68,8 +68,14 @@ object AssemblyUtils {
                 fileOutputStream(false)(target) { out => IO.transfer(from, out) }
               }
             }
-            if(preserveLastModified)
-              target.setLastModified(entry.getTime)
+
+            if (preserveLastModified) {
+              val t: Long = entry.getTime
+              val EPOCH_1980_01_01 = 315532800000L
+              val EPOCH_2010_01_01 = 1262304000000L
+              if (t > EPOCH_1980_01_01) target.setLastModified(t)
+              else target.setLastModified(EPOCH_2010_01_01)
+            }
           } catch {
             case e: Throwable => log.warn(e.getMessage)
           }
