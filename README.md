@@ -46,19 +46,13 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.example"
 ThisBuild / scalaVersion := "2.13.6"
 
-lazy val commonSettings = Seq(
-  Compile / assembly / test := {}
-)
-
 lazy val app = (project in file("app"))
-  .settings(commonSettings)
   .settings(
     Compile / assembly / mainClass := Some("com.example.Main"),
     // more settings here ...
   )
 
 lazy val utils = (project in file("utils"))
-  .settings(commonSettings)
   .settings(
     Compile / assembly / assemblyJarName := "utils.jar",
     // more settings here ...
@@ -78,7 +72,7 @@ single JAR file: `target/scala_X.X.X/projectname-assembly-X.X.X.jar`.
 If you specify a `mainClass in assembly` in build.sbt (or just let it autodetect
 one) then you'll end up with a fully executable JAR, ready to rock.
 
-Here is the list of the keys you can rewire for `assembly` task. 
+Here is the list of the keys you can rewire for `assembly` task.
 
     assemblyJarName               test                          mainClass
     assemblyOutputPath            assemblyMergeStrategy         assemblyOption
@@ -87,29 +81,45 @@ Here is the list of the keys you can rewire for `assembly` task.
 For example the name of the jar can be set as follows in build.sbt:
 
 ```scala
-Compile / assembly / assemblyJarName := "something.jar"
-```
-
-To skip the test during assembly,
-
-```scala
-Compile / assembly / test := {}
+lazy val app = (project in file("app"))
+  .settings(
+    Compile / assembly / assemblyJarName := "something.jar",
+    // more settings here ...
+  )
 ```
 
 To set an explicit main class,
 
 ```scala
-Compile / assembly / mainClass := Some("com.example.Main")
+lazy val app = (project in file("app"))
+  .settings(
+    Compile / assembly / mainClass := Some("com.example.Main"),
+    // more settings here ...
+  )
+```
+
+To run the test during assembly,
+
+```scala
+lazy val app = (project in file("app"))
+  .settings(
+    Compile / assembly / test := (Test / test).value,
+    // more settings here ...
+  )
 ```
 
 Excluding an explicit main class from your assembly requires something a little bit different though
 
 ```
-Compile / assembly / packageOptions ~= { pos =>
-  pos.filterNot { po =>
-    po.isInstanceOf[Package.MainClass]
-  }
-}
+lazy val app = (project in file("app"))
+  .settings(
+    Compile / assembly / packageOptions ~= { pos =>
+      pos.filterNot { po =>
+        po.isInstanceOf[Package.MainClass]
+      }
+    },
+    // more settings here ...
+  )
 ```
 
 ### Merge Strategy
@@ -233,7 +243,7 @@ To see the verbose output for shading:
 #### Scala libraries
 
 Scala classes contain an annotation which, among other things, contain all symbols referenced in that class. As of sbt-assembly XXX the rename rules
-will be applied to these annotations as well which makes it possible to compile or reflect against a shaded library.   
+will be applied to these annotations as well which makes it possible to compile or reflect against a shaded library.
 
 This is currently limited to renaming packages. Renaming class names will not work and cause compiler errors when compiling against the shaded library.
 

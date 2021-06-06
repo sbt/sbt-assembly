@@ -1,5 +1,5 @@
 lazy val testmerge = (project in file(".")).
   settings(
     version := "0.1",
-    jarName in assembly := "foo.jar"
+    assemblyJarName in assembly := "foo.jar"
   )

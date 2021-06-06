@@ -3,16 +3,16 @@ lazy val testmerge = (project in file(".")).
     version := "0.1",
     assemblyJarName in assembly := "foo.jar",
     scalaVersion := "2.11.12",
-    mergeStrategy in assembly := {
-      case "a" ⇒ MergeStrategy.concat
-      case "b" ⇒ MergeStrategy.first
-      case "c" ⇒ MergeStrategy.last
-      case "d" ⇒ MergeStrategy.filterDistinctLines
-      case "e" ⇒ MergeStrategy.deduplicate
-      case "f" ⇒ MergeStrategy.discard
-      case PathList("x", "y") ⇒ MergeStrategy.discard
-      case x   ⇒
-        val oldStrategy = (mergeStrategy in assembly).value
+    assemblyMergeStrategy in assembly := {
+      case "a" => MergeStrategy.concat
+      case "b" => MergeStrategy.first
+      case "c" => MergeStrategy.last
+      case "d" => MergeStrategy.filterDistinctLines
+      case "e" => MergeStrategy.deduplicate
+      case "f" => MergeStrategy.discard
+      case PathList("x", "y") => MergeStrategy.discard
+      case x   =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
     TaskKey[Unit]("check") := {
