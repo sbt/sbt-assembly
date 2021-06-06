@@ -83,7 +83,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyOption in assembly := {
       val s = streams.value
       AssemblyOption(
-        assemblyDirectory  = s.cacheDirectory / "assembly",
+        assemblyDirectory  = Some(s.cacheDirectory / "assembly"),
         includeBin         = (assembleArtifact in packageBin).value,
         includeScala       = (assembleArtifact in assemblyPackageScala).value,
         includeDependency  = (assembleArtifact in assemblyPackageDependency).value,
@@ -95,18 +95,23 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         appendContentHash  = false,
         prependShellScript = None,
         maxHashLength      = None,
-        shadeRules         = (assemblyShadeRules in assembly).value,
+        shadeRules         = (assemblyShadeRules in assembly).value.toVector,
         scalaVersion       = scalaVersion.value,
         level              = (logLevel in assembly).value)
     },
 
     assemblyOption in assemblyPackageScala := {
       val ao = (assemblyOption in assembly).value
-      ao.copy(includeBin = false, includeScala = true, includeDependency = false)
+      ao.withIncludeBin(false)
+        .withIncludeScala(true)
+        .withIncludeDependency(false)
     },
+
     assemblyOption in assemblyPackageDependency := {
       val ao = (assemblyOption in assembly).value
-      ao.copy(includeBin = false, includeScala = true, includeDependency = true)
+      ao.withIncludeBin(false)
+        .withIncludeScala(true)
+        .withIncludeDependency(true)
     },
 
     // packageOptions
@@ -116,6 +121,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         Package.MainClass(s) +: (os filterNot {_.isInstanceOf[Package.MainClass]})
       } getOrElse {os}
     },
+
     packageOptions in assemblyPackageScala      := (packageOptions in (Compile, packageBin)).value,
     packageOptions in assemblyPackageDependency := (packageOptions in (Compile, packageBin)).value,
 
@@ -142,21 +148,3 @@ object AssemblyPlugin extends sbt.AutoPlugin {
 
   lazy val assemblySettings: Seq[sbt.Def.Setting[_]] = baseAssemblySettings
 }
-
-case class AssemblyOption(assemblyDirectory: File,
-  // include compiled class files from itself or subprojects
-  includeBin: Boolean = true,
-  includeScala: Boolean = true,
-  // include class files from external dependencies
-  includeDependency: Boolean = true,
-  excludedJars: Classpath = Nil,
-  excludedFiles: Seq[File] => Seq[File] = Assembly.defaultExcludedFiles, // use mergeStrategy instead
-  mergeStrategy: String => MergeStrategy = MergeStrategy.defaultMergeStrategy,
-  cacheOutput: Boolean = true,
-  cacheUnzip: Boolean = true,
-  appendContentHash: Boolean = false,
-  prependShellScript: Option[Seq[String]] = None,
-  maxHashLength: Option[Int] = None,
-  shadeRules: Seq[jarjarabrams.ShadeRule] = Seq(),
-  scalaVersion: String = "",
-  level: Level.Value)

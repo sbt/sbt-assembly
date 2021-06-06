@@ -21,6 +21,8 @@ abstract class MergeStrategy extends Function1[(File, String, Seq[File]), Either
 }
 
 object MergeStrategy {
+  type StringToMergeStrategy = String => MergeStrategy
+
   private val FileExtension = """([.]\w+)$""".r
   private def filenames(tempDir: File, fs: Seq[File]): Seq[String] =
     for(f <- fs) yield {

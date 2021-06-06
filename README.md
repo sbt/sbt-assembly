@@ -69,10 +69,10 @@ single JAR file: `target/scala_X.X.X/projectname-assembly-X.X.X.jar`.
 
     > assembly
 
-If you specify a `mainClass in assembly` in build.sbt (or just let it autodetect
+If you specify a `assembly / mainClass` in build.sbt (or just let it autodetect
 one) then you'll end up with a fully executable JAR, ready to rock.
 
-Here is the list of the keys you can rewire for `assembly` task.
+Here is the list of the keys you can rewire scoped to `Compile / assembly` task:
 
     assemblyJarName               test                          mainClass
     assemblyOutputPath            assemblyMergeStrategy         assemblyOption
@@ -332,7 +332,7 @@ To make a JAR file containing only the external dependencies, type
 This is intended to be used with a JAR that only contains your project
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false, includeDependency = false)
+Compile / assembly / assemblyOption := (Compile / assembly / assemblyOption).value.copy(includeScala = false, includeDependency = false)
 ```
 
 NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs/technotes/tools/solaris/java.html#jar), it will ignore `-cp`, so if you have multiple JAR files you have to use `-cp` and pass the main class: `java -cp "jar1.jar:jar2.jar" Main`
@@ -342,7 +342,7 @@ NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs
 To exclude Scala library (JARs that start with `scala-` and are included in the binary Scala distribution) to run with `scala` command,
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false)
+Compile / assembly / assemblyOption := (Compile / assembly / assemblyOption).value.copy(includeScala = false)
 ```
 
 ### assemblyExcludedJars
@@ -364,7 +364,7 @@ Other Things
 You can also append SHA-1 fingerprint to the assembly file name, this may help you to determine whether it has changed and, for example, if it's necessary to deploy the dependencies,
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(appendContentHash = true)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).withAppendContentHash(true)
 ```
 
 ### Caching
@@ -372,13 +372,13 @@ Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(ap
 By default for performance reasons, the result of unzipping any dependency JAR files to disk is cached from run-to-run. This feature can be disabled by setting:
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheUnzip = false)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).withCacheUnzip(false)
 ```
 
 In addition the fat JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheOutput = false)
+Compile / assembly / assemblyOption := (assembly / assemblyOption).withCacheOutput(false)
 ```
 
 ### Prepending a launch script
