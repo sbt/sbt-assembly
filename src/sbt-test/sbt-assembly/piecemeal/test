@@ -2,6 +2,9 @@
 > assembly
 $ exists target/scala-2.10/foo-assembly-0.1.jar
 
+# try running this JAR. this should fail
+-> check1
+
 # check if the file gets created
 > assemblyPackageDependency
 $ exists target/scala-2.10/foo-assembly-0.1-deps.jar
@@ -11,4 +14,4 @@ $ exists target/scala-2.10/foo-assembly-0.1-deps.jar
 $ exists target/scala-2.10/scala-library-2.10.7-assembly.jar
 
 # check if it says hello
-> check
+> check2

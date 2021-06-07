@@ -8,7 +8,7 @@ import ErrorHandling.translate
 import PluginCompat._
 import Using._
 
-object AssemblyUtils {
+private[sbtassembly] object AssemblyUtils {
   private val PathRE = "([^/]+)/(.*)".r
 
   /** Find the source file (and possibly the entry within a jar) whence a conflicting file came.

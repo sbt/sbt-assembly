@@ -1,20 +1,21 @@
-lazy val testmerge = (project in file(".")).
-  settings(
-    version := "0.1",
+version in ThisBuild := "0.1"
+scalaVersion in ThisBuild := "2.11.12"
+assemblyMergeStrategy in ThisBuild := {
+  case "a" => MergeStrategy.concat
+  case "b" => MergeStrategy.first
+  case "c" => MergeStrategy.last
+  case "d" => MergeStrategy.filterDistinctLines
+  case "e" => MergeStrategy.deduplicate
+  case "f" => MergeStrategy.discard
+  case PathList("x", "y") => MergeStrategy.discard
+  case x   =>
+    val oldStrategy = (assemblyMergeStrategy in ThisBuild).value
+    oldStrategy(x)
+}
+
+lazy val testmerge = (project in file("."))
+  .settings(
     assemblyJarName in assembly := "foo.jar",
-    scalaVersion := "2.11.12",
-    assemblyMergeStrategy in assembly := {
-      case "a" => MergeStrategy.concat
-      case "b" => MergeStrategy.first
-      case "c" => MergeStrategy.last
-      case "d" => MergeStrategy.filterDistinctLines
-      case "e" => MergeStrategy.deduplicate
-      case "f" => MergeStrategy.discard
-      case PathList("x", "y") => MergeStrategy.discard
-      case x   =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
     TaskKey[Unit]("check") := {
       IO.withTemporaryDirectory { dir ⇒
         IO.unzip(crossTarget.value / "foo.jar", dir)

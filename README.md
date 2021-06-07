@@ -48,13 +48,13 @@ ThisBuild / scalaVersion := "2.13.6"
 
 lazy val app = (project in file("app"))
   .settings(
-    Compile / assembly / mainClass := Some("com.example.Main"),
+    assembly / mainClass := Some("com.example.Main"),
     // more settings here ...
   )
 
 lazy val utils = (project in file("utils"))
   .settings(
-    Compile / assembly / assemblyJarName := "utils.jar",
+    assembly / assemblyJarName := "utils.jar",
     // more settings here ...
   )
 ```
@@ -69,21 +69,28 @@ single JAR file: `target/scala_X.X.X/projectname-assembly-X.X.X.jar`.
 
     > assembly
 
-If you specify a `mainClass in assembly` in build.sbt (or just let it autodetect
+If you specify a `assembly / mainClass` in build.sbt (or just let it autodetect
 one) then you'll end up with a fully executable JAR, ready to rock.
 
-Here is the list of the keys you can rewire for `assembly` task.
+Here is the list of the keys you can rewire that are scoped to current subproject's `assembly` task:
 
     assemblyJarName               test                          mainClass
-    assemblyOutputPath            assemblyMergeStrategy         assemblyOption
-    assemblyExcludedJars          assembledMappings
+    assemblyOutputPath            assemblyOption                assembledMappings
+    assembledMappings
+
+And here is the list of the keys you can rewite that are scoped globally:
+
+    assemblyAppendContentHash     assemblyCacheOutput           assemblyCacheUnzip
+    assemblyExcludedJars          assemblyMergeStrategy         assemblyShadeRules
+
+Keys scoped to the subproject should be placed in `.settings(...)` whereas the globally scoped keys can either be placed inside of `.settings(...)` or scoped using `ThisBuild / ` to be shared across multiple subprojects.
 
 For example the name of the jar can be set as follows in build.sbt:
 
 ```scala
 lazy val app = (project in file("app"))
   .settings(
-    Compile / assembly / assemblyJarName := "something.jar",
+    assembly / assemblyJarName := "something.jar",
     // more settings here ...
   )
 ```
@@ -93,7 +100,7 @@ To set an explicit main class,
 ```scala
 lazy val app = (project in file("app"))
   .settings(
-    Compile / assembly / mainClass := Some("com.example.Main"),
+    assembly / mainClass := Some("com.example.Main"),
     // more settings here ...
   )
 ```
@@ -103,7 +110,7 @@ To run the test during assembly,
 ```scala
 lazy val app = (project in file("app"))
   .settings(
-    Compile / assembly / test := (Test / test).value,
+    assembly / test := (Test / test).value,
     // more settings here ...
   )
 ```
@@ -113,7 +120,7 @@ Excluding an explicit main class from your assembly requires something a little 
 ```
 lazy val app = (project in file("app"))
   .settings(
-    Compile / assembly / packageOptions ~= { pos =>
+    assembly / packageOptions ~= { pos =>
       pos.filterNot { po =>
         po.isInstanceOf[Package.MainClass]
       }
@@ -143,20 +150,20 @@ The mapping of path names to merge strategies is done via the setting
 `assemblyMergeStrategy` which can be augmented as follows:
 
 ```scala
-Compile / assembly / assemblyMergeStrategy := {
+ThisBuild / assemblyMergeStrategy := {
   case PathList("javax", "servlet", xs @ _*)         => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
   case "application.conf"                            => MergeStrategy.concat
   case "unwanted.txt"                                => MergeStrategy.discard
   case x =>
-    val oldStrategy = (assembly / assemblyMergeStrategy).value
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)
 }
 ```
 
 **NOTE**:
-- `Compile / assembly / assemblyMergeStrategy` expects a function. You can't do `Compile / assembly / assemblyMergeStrategy := MergeStrategy.first`!
-- Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(Compile / assembly / assemblyMergeStrategy)` as the above pattern matching example.
+- `ThisBuild / assemblyMergeStrategy` expects a function. You can't do `ThisBuild / assemblyMergeStrategy := MergeStrategy.first`!
+- Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(ThisBuild / assemblyMergeStrategy)` as the above pattern matching example.
 
 By the way, the first case pattern in the above using `PathList(...)` is how you can pick `javax/servlet/*` from the first jar. If the default `MergeStrategy.deduplicate` is not working for you, that likely means you have multiple versions of some library pulled by your dependency graph. The real solution is to fix that dependency graph. You can work around it by `MergeStrategy.first` but don't be surprised when you see `ClassNotFoundException`.
 
@@ -205,9 +212,9 @@ sbt-assembly can shade classes from your projects or from the library dependenci
 Backed by [Jar Jar Links](https://code.google.com/archive/p/jarjar/wikis/CommandLineDocs.wiki), bytecode transformation (via ASM) is used to change references to the renamed classes.
 
 ```scala
-    Compile / assembly / assemblyShadeRules := Seq(
-      ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inAll
-    )
+ThisBuild / assemblyShadeRules := Seq(
+  ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inAll
+)
 ```
 
 Here are the shade rules:
@@ -225,9 +232,9 @@ The `rename` rules takes a vararg of String pairs in `<pattern> -> <result>` for
 Instead of `.inAll`, call `.inProject` to match your project source, or call `.inLibrary("commons-io" % "commons-io" % "2.4", ...)` to match specific library dependencies. `inProject` and `inLibrary(...)` can be chained.
 
 ```scala
-    Compile / assembly/ assemblyShadeRules := Seq(
-      ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inLibrary("commons-io" % "commons-io" % "2.4", ...).inProject
-    )
+ThisBuild / assemblyShadeRules := Seq(
+  ShadeRule.rename("org.apache.commons.io.**" -> "shadeio.@1").inLibrary("commons-io" % "commons-io" % "2.4", ...).inProject
+)
 ```
 
 The `ShadeRule.zap` rule causes any matched class to be removed from the resulting jar file. All zap rules are processed before renaming rules.
@@ -237,7 +244,11 @@ The `ShadeRule.keep` rule marks all matched classes as "roots". If any keep rule
 To see the verbose output for shading:
 
 ```scala
-    Compile / assembly / logLevel := Level.Debug
+lazy val app = (project in file("app"))
+  .settings(
+    assembly / logLevel := Level.Debug
+    // more settings here ...
+  )
 ```
 
 #### Scala libraries
@@ -315,10 +326,10 @@ libraryDependencies ~= { _ map {
 To exclude specific files, customize merge strategy:
 
 ```scala
-Compile / assembly / assemblyMergeStrategy := {
+ThisBuild / assemblyMergeStrategy := {
   case PathList("about.html") => MergeStrategy.rename
   case x =>
-    val oldStrategy = (assembly / assemblyMergeStrategy).value
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)
 }
 ```
@@ -332,7 +343,19 @@ To make a JAR file containing only the external dependencies, type
 This is intended to be used with a JAR that only contains your project
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false, includeDependency = false)
+lazy val app = (project in file("app"))
+  .settings(
+    assemblyPackageScala / assembleArtifact := false,
+    assemblyPackageDependency / assembleArtifact := false,
+
+    // or as follows
+    assembly / assemblyOption ~= {
+      _.withIncludeScala(false)
+       .withIncludeDependency(false)
+    },
+
+    // more settings here ...
+  )
 ```
 
 NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs/technotes/tools/solaris/java.html#jar), it will ignore `-cp`, so if you have multiple JAR files you have to use `-cp` and pass the main class: `java -cp "jar1.jar:jar2.jar" Main`
@@ -342,7 +365,17 @@ NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs
 To exclude Scala library (JARs that start with `scala-` and are included in the binary Scala distribution) to run with `scala` command,
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false)
+lazy val app = (project in file("app"))
+  .settings(
+    assemblyPackageScala / assembleArtifact := false,
+
+    // or as follows
+    assembly / assemblyOption ~= {
+      _.withIncludeScala(false)
+    },
+
+    // more settings here ...
+  )
 ```
 
 ### assemblyExcludedJars
@@ -350,10 +383,15 @@ Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(in
 If all efforts fail, here's a way to exclude JAR files:
 
 ```scala
-Compile / assembly / assemblyExcludedJars := {
-  val cp = (assembly / fullClasspath).value
-  cp filter {_.data.getName == "compile-0.1.0.jar"}
-}
+lazy val app = (project in file("app"))
+  .settings(
+    assembly / assemblyExcludedJars := {
+      val cp = (assembly / fullClasspath).value
+      cp filter {_.data.getName == "compile-0.1.0.jar"}
+    },
+
+    // more settings here ...
+  )
 ```
 
 Other Things
@@ -364,7 +402,13 @@ Other Things
 You can also append SHA-1 fingerprint to the assembly file name, this may help you to determine whether it has changed and, for example, if it's necessary to deploy the dependencies,
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(appendContentHash = true)
+ThisBuild / assemblyAppendContentHash := true
+
+// or
+lazy val app = (project in file("app"))
+  .settings(
+     assembly / assemblyOption ~= { _.withAppendContentHash(true) }
+  )
 ```
 
 ### Caching
@@ -372,13 +416,25 @@ Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(ap
 By default for performance reasons, the result of unzipping any dependency JAR files to disk is cached from run-to-run. This feature can be disabled by setting:
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheUnzip = false)
+ThisBuild / assemblyCacheUnzip := false
+
+// or
+lazy val app = (project in file("app"))
+  .settings(
+     assembly / assemblyOption ~= { _.withCacheUnzip(false) }
+  )
 ```
 
 In addition the fat JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
 
 ```scala
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(cacheOutput = false)
+ThisBuild / assemblyCacheOutput := false
+
+// or
+lazy val app = (project in file("app"))
+  .settings(
+     assembly / assemblyOption ~= { _.withCacheOutput(false) }
+  )
 ```
 
 ### Prepending a launch script
@@ -388,9 +444,12 @@ Your can prepend a launch script to the fat jar. This script will be a valid she
 ```scala
 import sbtassembly.AssemblyPlugin.defaultUniversalScript
 
-assembly / assemblyOption := (assembly / assemblyOption).value.copy(prependShellScript = Some(defaultUniversalScript(shebang = false)))
+ThisBuild / assemblyPrependShellScript := = Some(defaultUniversalScript(shebang = false)))
 
-assembly / assemblyJarName := s"${name.value}-${version.value}"
+lazy val app = (project in file("app"))
+  .settings(
+     assembly / assemblyJarName := s"${name.value}-${version.value}"
+  )
 ```
 
 This will prepend the following shell script to the jar.
@@ -413,9 +472,12 @@ You can also choose to prepend just the shell script to the fat jar as follows:
 ```scala
 import sbtassembly.AssemblyPlugin.defaultShellScript
 
-Compile / assembly / assemblyOption := (assembly / assemblyOption).value.copy(prependShellScript = Some(defaultShellScript))
+ThisBuild / assemblyPrependShellScript := Some(defaultShellScript)
 
-Compile / assembly / assemblyJarName := s"${name.value}-${version.value}"
+lazy val app = (project in file("app"))
+  .settings(
+     assembly / assemblyJarName := s"${name.value}-${version.value}"
+  )
 ```
 
 ### Publishing (Not Recommended)
@@ -424,12 +486,12 @@ Publishing fat JARs out to the world is discouraged because non-modular JARs cau
 and all of the other artifacts, add an `assembly` classifier (or other):
 
 ```scala
-Compile / assembly / artifact := {
-  val art = (Compile / assembly / artifact).value
+assembly / artifact := {
+  val art = (assembly / artifact).value
   art.withClassifier(Some("assembly"))
 }
 
-addArtifact(Compile / assembly / artifact, assembly)
+addArtifact(assembly / artifact, assembly)
 ```
 
 ### Q: Despite the concerned friends, I still want publish fat JARs. What advice do you have?
@@ -449,13 +511,19 @@ lazy val cosmetic = project
   .settings(
     name := "shaded-something",
     // I am sober. no dependencies.
-    Compile / packageBin := (fatJar / Compile / assembly).value
+    Compile / packageBin := (fatJar / assembly).value
   )
 ```
 
 License
 -------
 
-Copyright (c) 2010-2014 e.e d3si9n, Coda Hale
-
 Published under The MIT License, see LICENSE
+
+Copyright e.e d3si9n, LLC
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

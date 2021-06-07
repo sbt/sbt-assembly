@@ -13,6 +13,10 @@ import com.eed3si9n.jarjarabrams._
 object Assembly {
   import AssemblyPlugin.autoImport.{ Assembly => _, _ }
 
+  // used for contraband
+  type SeqFileToSeqFile = Seq[File] => Seq[File]
+  type SeqString = Seq[String]
+
   private val scalaPre213Libraries = Vector(
     "scala-actors",
     "scala-compiler",
@@ -40,7 +44,7 @@ object Assembly {
 
     lazy val (ms: Vector[(File, String)], stratMapping: List[(String, MergeStrategy)]) = {
       log.debug("Merging files...")
-      applyStrategies(mappings, ao.mergeStrategy, ao.assemblyDirectory, log)
+      applyStrategies(mappings, ao.mergeStrategy, ao.assemblyDirectory.get, log)
     }
     def makeJar(outPath: File): Unit = {
       import Package._
@@ -215,7 +219,7 @@ object Assembly {
   // which jars exactly belong to the deps for packageDependency option.
   def assembleMappings(classpath: Classpath, dependencies: Classpath,
       ao: AssemblyOption, log: Logger): Vector[MappingSet] = {
-    val tempDir = ao.assemblyDirectory
+    val tempDir = ao.assemblyDirectory.get
     if (!ao.cacheUnzip) IO.delete(tempDir)
     if (!tempDir.exists) tempDir.mkdir()
 

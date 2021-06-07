@@ -1,10 +1,9 @@
-lazy val root = (project in file(".")).
-  settings(
-    version := "0.1",
-    scalaVersion := "2.11.12"
-  ).
-  settings(inConfig(Test)(baseAssemblySettings): _*).
-  settings(
+version in ThisBuild := "0.1"
+scalaVersion in ThisBuild := "2.11.12"
+
+lazy val root = (project in file("."))
+  .settings(inConfig(Test)(baseAssemblySettings))
+  .settings(
     assemblyJarName in (Test, assembly) := "foo.jar",
     TaskKey[Unit]("check") := {
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))

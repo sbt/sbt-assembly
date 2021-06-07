@@ -1,14 +1,19 @@
-lazy val root = (project in file(".")).
-  settings(
+version in ThisBuild := "0.1"
+scalaVersion in ThisBuild := "2.12.8"
+assemblyAppendContentHash in ThisBuild := true
+
+lazy val root = (project in file("."))
+  .settings(
     name := "foo",
-    version := "0.1",
-    scalaVersion := "2.10.7",
     libraryDependencies ++= Seq(
-      "net.databinder.dispatch" %% "dispatch-core" % "0.11.0"
+      "com.eed3si9n" %% "gigahorse-okhttp" % "0.5.0"
     ),
-    assemblyOption in assembly ~= { _.copy(includeScala = false, includeDependency = false) },
-    assemblyOption in assembly ~= { _.copy(appendContentHash = true) },
-    assemblyOption in assemblyPackageDependency ~= { _.copy(appendContentHash = true) },
+
+    (assemblyOption in assembly) ~= {
+      _.withIncludeScala(false)
+       .withIncludeDependency(false)
+    },
+
     InputKey[Unit]("checkFile") := {
       val args = sbt.complete.Parsers.spaceDelimited("<arg>").parsed
       val expectFileNameRegex = args.head.r
@@ -16,6 +21,7 @@ lazy val root = (project in file(".")).
         expectFileNameRegex.findFirstIn(jar.getName).isDefined
       })
     },
+
     TaskKey[Unit]("checkPrevious") := {
       import sbinary.DefaultProtocol._
       import sbtassembly.PluginCompat._
