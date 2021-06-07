@@ -13,7 +13,7 @@ Scala identifiers for the keys remain the same (e.g. `jarName`), but key names a
 
     jarName in assembly := "foo.jar"
 
-### use `assembleArtifact` instead of `publishArtifact` 
+### use `assembleArtifact` instead of `publishArtifact`
 To exclude Scala library,
 
     assembleArtifact in packageScala := false

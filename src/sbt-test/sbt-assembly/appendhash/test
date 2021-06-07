@@ -10,7 +10,7 @@
 > assemblyPackageDependency
 > checkFile "foo-assembly-0.1-deps-[0-9abcdef]{40}.jar"
 
-> set assemblyOption in assembly ~= { _.copy(appendContentHash = true, maxHashLength = Some(5)) }
+> set assemblyMaxHashLength in ThisBuild := 5
 > clean
 > assembly
 > checkFile "foo-assembly-0.1-[0-9abcdef]{5}.jar"

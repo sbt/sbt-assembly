@@ -1,19 +1,22 @@
-scalaVersion := "2.10.7"
+scalaVersion in ThisBuild := "2.10.7"
 
-crossPaths := false
-
-assemblyJarName in assembly := "assembly.jar"
-
-assemblyShadeRules in assembly := Seq(
+assemblyShadeRules in ThisBuild := Seq(
   ShadeRule.rename("somepackage.**" -> "shaded.@1").inAll
 )
 
-TaskKey[Unit]("check") := {
-  val expected = "Hello shaded.SomeClass"
-  val output = sys.process.Process("java", Seq("-jar", assembly.value.absString)).!!.trim
-  if (output != expected) sys.error("Unexpected output: " + output)
-}
+lazy val root = (project in file("."))
+  .settings(
+    crossPaths := false,
 
-TaskKey[Unit]("unzip") := {
-  IO.unzip((assemblyOutputPath in assembly).value, crossTarget.value / "unzipped")
-}
+    assemblyJarName in assembly := "assembly.jar",
+
+    TaskKey[Unit]("check") := {
+      val expected = "Hello shaded.SomeClass"
+      val output = sys.process.Process("java", Seq("-jar", assembly.value.absString)).!!.trim
+      if (output != expected) sys.error("Unexpected output: " + output)
+    },
+
+    TaskKey[Unit]("unzip") := {
+      IO.unzip((assemblyOutputPath in assembly).value, crossTarget.value / "unzipped")
+    }
+  )

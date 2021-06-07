@@ -1,10 +1,9 @@
-lazy val root = (project in file(".")).
-  settings(
-    version := "0.1",
-    scalaVersion := "2.10.7",
-    assemblyOption in assembly ~= { _.copy(cacheOutput = true) },
-    assemblyOption in assembly ~= { _.copy(cacheUnzip = true) },
-    assemblyJarName in assembly := "foo.jar",
+version in ThisBuild := "0.1"
+scalaVersion in ThisBuild := "2.12.8"
+
+lazy val root = (project in file("."))
+  .settings(
+    assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))
       val out = (process!!)
@@ -12,4 +11,3 @@ lazy val root = (project in file(".")).
       ()
     }
   )
-
