@@ -14,7 +14,7 @@ lazy val root = (project in file("."))
     scalacOptions := Seq("-deprecation", "-unchecked", "-Dscalac.patmat.analysisBudget=1024", "-Xfuture")
     libraryDependencies ++= Seq(
       "org.scalactic" %% "scalactic" % "3.0.8",
-      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "0.1.0",
+      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "0.3.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % Test,
     )
     (pluginCrossBuild / sbtVersion) := {
