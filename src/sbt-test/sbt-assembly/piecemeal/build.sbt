@@ -7,6 +7,7 @@ assembleArtifact in (ThisBuild, assemblyPackageDependency) := false
 lazy val root = (project in file("."))
   .settings(
     name := "foo",
+    mainClass in assembly := Some("Main"),
 
     // assembly / assemblyOption ~= {
     //   _.withIncludeScala(false)
