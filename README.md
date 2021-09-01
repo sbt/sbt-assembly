@@ -1,9 +1,9 @@
 sbt-assembly
 ============
 
-*Deploy fat JARs. Restart processes.*
+*Deploy über JARs. Restart processes.*
 
-sbt-assembly is a sbt plugin originally ported from codahale's assembly-sbt, which I'm guessing was inspired by Maven's assembly plugin. The goal is simple: Create a fat JAR of your project with all of its dependencies.
+sbt-assembly is a sbt plugin originally ported from codahale's assembly-sbt, which I'm guessing was inspired by Maven's assembly plugin. The goal is simple: Create a über JAR of your project with all of its dependencies.
 
 Requirements
 ------------
@@ -285,7 +285,7 @@ Compile / run := Defaults.runTask(Compile / fullClasspath, Compile / run / mainC
 
 ### Exclude specific transitive deps
 
-You might be thinking about excluding JAR files because of the merge conflicts. Merge conflict of `*.class` files indicate pathological classpath, often due to non-modular bundle JAR files or [SLF4J](http://www.slf4j.org/legacy.html), not the problem with assembly. Here's what happens when you try to create a fat JAR with Spark included:
+You might be thinking about excluding JAR files because of the merge conflicts. Merge conflict of `*.class` files indicate pathological classpath, often due to non-modular bundle JAR files or [SLF4J](http://www.slf4j.org/legacy.html), not the problem with assembly. Here's what happens when you try to create a über JAR with Spark included:
 
 ```
 [error] (*:assembly) deduplicate: different file contents found in the following:
@@ -423,7 +423,7 @@ lazy val app = (project in file("app"))
   )
 ```
 
-In addition the fat JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
+In addition the über JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
 
 ```scala
 ThisBuild / assemblyCacheOutput := false
@@ -437,7 +437,7 @@ lazy val app = (project in file("app"))
 
 ### Prepending a launch script
 
-Your can prepend a launch script to the fat jar. This script will be a valid shell and batch script and will make the jar executable on Unix and Windows. If you enable the shebang the file will be detected as an executable under Linux but this will cause an error message to appear on Windows. On Windows just append a ".bat" to the files name to make it executable.
+Your can prepend a launch script to the über jar. This script will be a valid shell and batch script and will make the jar executable on Unix and Windows. If you enable the shebang the file will be detected as an executable under Linux but this will cause an error message to appear on Windows. On Windows just append a ".bat" to the files name to make it executable.
 
 ```scala
 import sbtassembly.AssemblyPlugin.defaultUniversalScript
@@ -465,7 +465,7 @@ java -jar %JAVA_OPTS% "%~dpnx0" %*
 exit /B %errorlevel%
 ```
 
-You can also choose to prepend just the shell script to the fat jar as follows:
+You can also choose to prepend just the shell script to the über jar as follows:
 
 ```scala
 import sbtassembly.AssemblyPlugin.defaultShellScript
@@ -480,7 +480,7 @@ lazy val app = (project in file("app"))
 
 ### Publishing (Not Recommended)
 
-Publishing fat JARs out to the world is discouraged because non-modular JARs cause much sadness. One might think non-modularity is convenience but it quickly turns into a headache the moment your users step outside of Hello World example code. If you still wish to publish your assembled artifact along with the `publish` task
+Publishing über JARs out to the world is discouraged because non-modular JARs cause much sadness. One might think non-modularity is convenience but it quickly turns into a headache the moment your users step outside of Hello World example code. If you still wish to publish your assembled artifact along with the `publish` task
 and all of the other artifacts, add an `assembly` classifier (or other):
 
 ```scala
@@ -492,13 +492,13 @@ assembly / artifact := {
 addArtifact(assembly / artifact, assembly)
 ```
 
-### Q: Despite the concerned friends, I still want publish fat JARs. What advice do you have?
+### Q: Despite the concerned friends, I still want publish über JARs. What advice do you have?
 
 You would likely need to set up a front business to lie about what dependencies you have in `pom.xml` and `ivy.xml`.
-To do so, make a subproject for fat JAR purpose only where you depend on the dependencies, and make a second cosmetic subproject that you use only for publishing purpose:
+To do so, make a subproject for über JAR purpose only where you depend on the dependencies, and make a second cosmetic subproject that you use only for publishing purpose:
 
 ```scala
-lazy val fatJar = project
+lazy val uberJar = project
   .enablePlugins(AssemblyPlugin)
   .settings(
     depend on the good stuff
@@ -509,7 +509,7 @@ lazy val cosmetic = project
   .settings(
     name := "shaded-something",
     // I am sober. no dependencies.
-    Compile / packageBin := (fatJar / assembly).value
+    Compile / packageBin := (uberJar / assembly).value
   )
 ```
 
