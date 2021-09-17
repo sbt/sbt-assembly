@@ -5,16 +5,16 @@ import Keys._
 import com.eed3si9n.jarjarabrams
 
 trait AssemblyKeys {
-  lazy val assembly                  = taskKey[File]("Builds a deployable fat JAR")
+  lazy val assembly                  = taskKey[File]("Builds a deployable über JAR")
   lazy val assembleArtifact          = settingKey[Boolean]("Enables (true) or disables (false) assembling an artifact")
-  lazy val assemblyOption            = taskKey[AssemblyOption]("Configuration for making a deployable fat JAR")
+  lazy val assemblyOption            = taskKey[AssemblyOption]("Configuration for making a deployable über JAR")
   lazy val assembledMappings         = taskKey[Seq[MappingSet]]("Keeps track of jar origins for each source")
 
   lazy val assemblyPackageScala      = taskKey[File]("Produces the Scala artifact")
   lazy val assemblyPackageDependency = taskKey[File]("Produces the dependency artifact")
-  lazy val assemblyJarName           = taskKey[String]("name of the fat jar")
-  lazy val assemblyDefaultJarName    = taskKey[String]("default name of the fat jar")
-  lazy val assemblyOutputPath        = taskKey[File]("output path of the fat jar")
+  lazy val assemblyJarName           = taskKey[String]("name of the über jar")
+  lazy val assemblyDefaultJarName    = taskKey[String]("default name of the über jar")
+  lazy val assemblyOutputPath        = taskKey[File]("output path of the über jar")
   lazy val assemblyExcludedJars      = taskKey[Classpath]("list of excluded jars")
   lazy val assemblyMergeStrategy     = settingKey[String => MergeStrategy]("mapping from archive member path to merge strategy")
   lazy val assemblyShadeRules        = settingKey[Seq[jarjarabrams.ShadeRule]]("shading rules backed by jarjar")
@@ -22,7 +22,7 @@ trait AssemblyKeys {
   lazy val assemblyMaxHashLength     = settingKey[Int]("Length of SHA-1 fingerprint used for the assembly file name")
   lazy val assemblyCacheUnzip        = settingKey[Boolean]("Caches the unzipped products of the dependency JAR files")
   lazy val assemblyCacheOutput       = settingKey[Boolean]("Caches the output if the content has not changed")
-  lazy val assemblyPrependShellScript = settingKey[Option[Seq[String]]]("A launch script to prepend to the fat JAR")
+  lazy val assemblyPrependShellScript = settingKey[Option[Seq[String]]]("A launch script to prepend to the über JAR")
 }
 
 object AssemblyKeys extends AssemblyKeys
