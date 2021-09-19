@@ -40,7 +40,7 @@ ThisBuild / developers := List(
     url   = url("https://eed3si9n.com/")
   ),
 )
-ThisBuild / description := "sbt plugin to create a single fat jar"
+ThisBuild / description := "sbt plugin to create a single über jar"
 ThisBuild / homepage := Some(url("https://github.com/sbt/sbt-assembly"))
 ThisBuild / licenses := Seq("MIT" -> url("https://github.com/sbt/sbt-assembly/blob/master/LICENSE"))
 ThisBuild / pomIncludeRepository := { _ => false }
