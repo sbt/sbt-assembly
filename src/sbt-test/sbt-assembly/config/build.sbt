@@ -4,7 +4,7 @@ scalaVersion in ThisBuild := "2.11.12"
 lazy val root = (project in file("."))
   .settings(inConfig(Test)(baseAssemblySettings))
   .settings(
-    assemblyJarName in (Test, assembly) := "foo.jar",
+    Test / assembly / assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))
       val out = (process!!)

@@ -8,8 +8,8 @@ crossScalaVersions := List(scala211, scala212, scala213)
 lazy val testkeep = (project in file(".")).
   settings(
     version := "0.1",
-    assemblyJarName in assembly := "foo.jar",
-    assemblyShadeRules in assembly := Seq(
+    assembly / assemblyJarName := "foo.jar",
+    assembly / assemblyShadeRules := Seq(
       ShadeRule.keep("keep.**").inProject
     ),
     TaskKey[Unit]("check") := {

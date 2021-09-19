@@ -28,6 +28,7 @@ Add sbt-assembly as a dependency in `project/plugins.sbt`:
 ```scala
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "x.y.z")
 ```
+Starting in `sbt-assembly` `1.2.0`, sbt `0.13.x` has been deprecated.  Please use `1.1.0` if this is required.
 
 Usage
 -----

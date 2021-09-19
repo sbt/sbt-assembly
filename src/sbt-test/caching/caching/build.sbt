@@ -4,19 +4,19 @@ lazy val root = (project in file(".")).
     scalaVersion := "2.11.12",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "0.9.29" % "runtime",
-    assemblyOption in assembly ~= {
+    assembly / assemblyOption ~= {
       _.withCacheOutput(true)
         .withCacheUnzip(true)
     },
-    assemblyJarName in assembly := "foo.jar",
+    assembly / assemblyJarName := "foo.jar",
     TaskKey[Seq[File]]("genresource") := {
-      val dirs = (unmanagedResourceDirectories in Compile).value
+      val dirs = (Compile / unmanagedResourceDirectories).value
       val file = dirs.head / "foo.txt"
       IO.write(file, "bye")
       Seq(file)
     },
     TaskKey[Seq[File]]("genresource2") := {
-      val dirs = (unmanagedResourceDirectories in Compile).value
+      val dirs = (Compile / unmanagedResourceDirectories).value
       val file = dirs.head / "bar.txt"
       IO.write(file, "bye")
       Seq(file)

@@ -5,19 +5,19 @@ lazy val root = (project in file("."))
   .settings(
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "0.9.29" % "runtime",
-    unmanagedJars in Compile ++= {
+    Compile / unmanagedJars ++= {
        (baseDirectory.value / "lib" / "compile" ** "*.jar").classpath
     },
-    unmanagedJars in Runtime ++= {
+    Runtime / unmanagedJars ++= {
        (baseDirectory.value / "lib" / "runtime" ** "*.jar").classpath
     },
-    unmanagedJars in Test ++= {
+    Test / unmanagedJars ++= {
        (baseDirectory.value / "lib" / "test" ** "*.jar").classpath
     },
     assemblyExcludedJars := {
-      (fullClasspath in assembly).value filter {_.data.getName == "compile-0.1.0.jar"}
+      (assembly / fullClasspath).value filter {_.data.getName == "compile-0.1.0.jar"}
     },
-    assemblyJarName in assembly := "foo.jar",
+    assembly / assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))
       val out = (process!!)
