@@ -20,8 +20,8 @@ trait AssemblyKeys {
   lazy val assemblyShadeRules        = settingKey[Seq[jarjarabrams.ShadeRule]]("shading rules backed by jarjar")
   lazy val assemblyAppendContentHash = settingKey[Boolean]("Appends SHA-1 fingerprint to the assembly file name")
   lazy val assemblyMaxHashLength     = settingKey[Int]("Length of SHA-1 fingerprint used for the assembly file name")
-  lazy val assemblyCacheUnzip        = settingKey[Boolean]("Caches the unzipped products of the dependency JAR files")
-  lazy val assemblyCacheOutput       = settingKey[Boolean]("Caches the output if the content has not changed")
+  lazy val assemblyCacheUnzip        = settingKey[Boolean]("Enables (true) or disables (false) cacheing the unzipped products of the dependency JAR files")
+  lazy val assemblyCacheOutput       = settingKey[Boolean]("Enables (true) or disables (false) cacheing the output if the content has not changed")
   lazy val assemblyPrependShellScript = settingKey[Option[Seq[String]]]("A launch script to prepend to the über JAR")
 }
 
