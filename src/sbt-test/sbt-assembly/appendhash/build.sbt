@@ -9,7 +9,7 @@ lazy val root = (project in file("."))
       "com.eed3si9n" %% "gigahorse-okhttp" % "0.5.0"
     ),
 
-    (assemblyOption in assembly) ~= {
+    assembly / assemblyOption ~= {
       _.withIncludeScala(false)
        .withIncludeDependency(false)
     },

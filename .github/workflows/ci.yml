@@ -13,12 +13,8 @@ jobs:
         include:
           - java: 8
             scala: 2.12.8
-          - java: 8
-            scala: 2.10.7
           - java: 11
             scala: 2.12.8
-          - java: 11
-            scala: 2.10.7
     env:
       # define Java options for both official sbt and sbt-extras
       JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8

@@ -1,9 +1,8 @@
-ThisBuild / version := "1.1.1-SNAPSHOT"
+ThisBuild / version := "1.2.0-SNAPSHOT"
 ThisBuild / organization := "com.eed3si9n"
 
 def scala212 = "2.12.8"
-def scala210 = "2.10.7"
-ThisBuild / crossScalaVersions := Seq(scala212, scala210)
+ThisBuild / crossScalaVersions := Seq(scala212)
 ThisBuild / scalaVersion := scala212
 
 lazy val root = (project in file("."))
@@ -19,7 +18,6 @@ lazy val root = (project in file("."))
     )
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {
-        case "2.10" => "0.13.18"
         case "2.12" => "1.2.8"
       }
     }

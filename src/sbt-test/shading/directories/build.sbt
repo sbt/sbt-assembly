@@ -8,7 +8,7 @@ lazy val root = (project in file("."))
   .settings(
     crossPaths := false,
 
-    assemblyJarName in assembly := "assembly.jar",
+    assembly / assemblyJarName := "assembly.jar",
 
     TaskKey[Unit]("check") := {
       val expected = "Hello shaded.SomeClass"
@@ -17,6 +17,6 @@ lazy val root = (project in file("."))
     },
 
     TaskKey[Unit]("unzip") := {
-      IO.unzip((assemblyOutputPath in assembly).value, crossTarget.value / "unzipped")
+      IO.unzip((assembly / assemblyOutputPath).value, crossTarget.value / "unzipped")
     }
   )

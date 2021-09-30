@@ -54,11 +54,11 @@ lazy val root = project.in(file("."))
   .settings(
     Seq(
       name := "scalasiggannottest",
-      mainClass in assembly := Some("scalasigannot.Main"),
+      assembly / mainClass := Some("scalasigannot.Main"),
       libraryDependencies := Seq(
         "org.scala-lang" % "scala-reflect" % scalaVersion.value
       ),
-      (unmanagedJars in Compile) := {
+      Compile / unmanagedJars := {
         //val tbs: File = ((packageBin in (Compile, assembly)) in fatLib).value
         //Seq(sbt.internal.util.Attributed.blank[java.io.File](tbs))
 
