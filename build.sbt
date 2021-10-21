@@ -6,7 +6,7 @@ ThisBuild / crossScalaVersions := Seq(scala212)
 ThisBuild / scalaVersion := scala212
 
 lazy val root = (project in file("."))
-  .enablePlugins(SbtPlugin) // ContrabandPlugin
+  .enablePlugins(SbtPlugin, ContrabandPlugin)
   .settings(pomConsistency2021DraftSettings)
   .settings(nocomma {
     name := "sbt-assembly"
@@ -21,7 +21,7 @@ lazy val root = (project in file("."))
         case "2.12" => "1.2.8"
       }
     }
-    Compile / generateContrabands / sourceManaged := baseDirectory.value / "src" / "main" / "contraband-scala"
+    Compile / generateContrabands / sourceManaged := baseDirectory.value / "src" / "main" / "scala"
   })
 
 ThisBuild / scmInfo := Some(
