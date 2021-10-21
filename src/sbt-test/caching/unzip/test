@@ -1,0 +1,63 @@
+# check if the file gets created and unzips and creates hardlinks
+> clean
+> assembly
+# Ensure all warnings have time to be printed
+$ sleep 1000
+> checkLogContains Unzipping slf4j-api-1.6.1.jar into unzip cache
+> checkLogContains Unzipping commons-io-2.4.jar into unzip cache
+> checkLogContains Unzipping logback-classic-0.9.29.jar into unzip cache
+> checkLogContains Unzipping logback-core-0.9.29.jar into unzip cache
+> checkLogContains Unzipping scala-library-2.11.12.jar into unzip cache
+> checkLogContains Creating hardlinks of slf4j-api-1.6.1.jar from unzip cache
+> checkLogContains Creating hardlinks of commons-io-2.4.jar from unzip cache
+> checkLogContains Creating hardlinks of logback-classic-0.9.29.jar from unzip cache
+> checkLogContains Creating hardlinks of logback-core-0.9.29.jar from unzip cache
+> checkLogContains Creating hardlinks of scala-library-2.11.12.jar from unzip cache
+$ exists target/scala-2.11/foo.jar
+
+# check if already cached
+> clearLog
+> assembly
+# Ensure all warnings have time to be printed
+$ sleep 1000
+> checkLogContains Assembly up to date
+
+# check if creates from cache files
+> clearLog
+$ delete target/scala-2.11/foo.jar
+> assembly
+# Ensure all warnings have time to be printed
+$ sleep 1000
+> checkLogContains Including slf4j-api-1.6.1.jar from output cache
+> checkLogContains Including commons-io-2.4.jar from output cache
+> checkLogContains Including logback-classic-0.9.29.jar from output cache
+> checkLogContains Including logback-core-0.9.29.jar from output cache
+> checkLogContains Including scala-library-2.11.12.jar from output cache
+
+# check for using unzip cache
+> clean
+$ absent target/scala-2.11
+> clearLog
+> assembly
+# Ensure all warnings have time to be printed
+$ sleep 1000
+> checkLogContains Creating hardlinks of slf4j-api-1.6.1.jar from unzip cache
+> checkLogContains Creating hardlinks of commons-io-2.4.jar from unzip cache
+> checkLogContains Creating hardlinks of logback-classic-0.9.29.jar from unzip cache
+> checkLogContains Creating hardlinks of logback-core-0.9.29.jar from unzip cache
+> checkLogContains Creating hardlinks of scala-library-2.11.12.jar from unzip cache
+> checkunzip
+
+> cleanunzip
+> clean
+> clearLog
+> assemblyCacheDependency
+# Ensure all warnings have time to be printed
+$ sleep 1000
+> checkLogContains Unzipping slf4j-api-1.6.1.jar into unzip cache
+> checkLogContains Unzipping commons-io-2.4.jar into unzip cache
+> checkLogContains Unzipping logback-classic-0.9.29.jar into unzip cache
+> checkLogContains Unzipping logback-core-0.9.29.jar into unzip cache
+> checkLogContains Unzipping scala-library-2.11.12.jar into unzip cache
+
+> cleanunzip

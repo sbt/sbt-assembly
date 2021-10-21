@@ -1,6 +1,12 @@
 # check if the file gets created
 > clean
 > assembly
+# Ensure all warnings have time to be printed
+$ sleep 500
+> checkLogContains Unzipping slf4j-api-1.6.1.jar into output cache
+> checkLogContains Unzipping logback-classic-0.9.29.jar into output cache
+> checkLogContains Unzipping logback-core-0.9.29.jar into output cache
+> checkLogContains Unzipping scala-library-2.11.12.jar into output cache
 $ exists target/scala-2.11/foo.jar
 
 # run to cache the hash, then check it's consistent
@@ -28,3 +34,13 @@ $ delete src/main/resources/foo.txt
 > genresource2
 > assembly
 > check
+
+> clearLog
+> assemblyCacheDependency
+# Ensure all warnings have time to be printed
+$ sleep 1000
+> checkLogContains AssemblyOption.assemblyUnzipDirectory must be be supplied. Skipping cache unzip task
+> checkLogNotContains Unzipping slf4j-api-1.6.1.jar into unzip cache
+> checkLogNotContains Unzipping logback-classic-0.9.29.jar into unzip cache
+> checkLogNotContains Unzipping logback-core-0.9.29.jar into unzip cache
+> checkLogNotContains Unzipping scala-library-2.11.12.jar into unzip cache

@@ -23,6 +23,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   import autoImport.{ Assembly => _, baseAssemblySettings => _, _ }
 
   override lazy val globalSettings: Seq[Def.Setting[_]] = Seq(
+    assemblyUnzipDirectory := None,
     assemblyMergeStrategy := MergeStrategy.defaultMergeStrategy,
     assemblyShadeRules := Nil,
     assemblyExcludedJars := Nil,
@@ -32,6 +33,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyAppendContentHash := false,
     assemblyCacheUnzip := true,
     assemblyCacheOutput := true,
+    assemblyCacheUseHardLinks := false,
     assemblyPrependShellScript := None
   )
 
@@ -50,12 +52,13 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   )
 
   lazy val baseAssemblySettings: Seq[sbt.Def.Setting[_]] = (Seq(
-    assembly := Assembly.assemblyTask(assembly).value,
-    assembledMappings in assembly                   := Assembly.assembledMappingsTask(assembly).value,
-    assemblyPackageScala                            := Assembly.assemblyTask(assemblyPackageScala).value,
-    assembledMappings in assemblyPackageScala       := Assembly.assembledMappingsTask(assemblyPackageScala).value,
-    assemblyPackageDependency                       := Assembly.assemblyTask(assemblyPackageDependency).value,
-    assembledMappings in assemblyPackageDependency  := Assembly.assembledMappingsTask(assemblyPackageDependency).value,
+    assembly                                       := Assembly.assemblyTask(assembly).value,
+    assembledMappings in assembly                  := Assembly.assembledMappingsTask(assembly).value,
+    assemblyPackageScala                           := Assembly.assemblyTask(assemblyPackageScala).value,
+    assembledMappings in assemblyPackageScala      := Assembly.assembledMappingsTask(assemblyPackageScala).value,
+    assemblyPackageDependency                      := Assembly.assemblyTask(assemblyPackageDependency).value,
+    assembledMappings in assemblyPackageDependency := Assembly.assembledMappingsTask(assemblyPackageDependency).value,
+    assemblyCacheDependency                        := Assembly.assemblyCacheDependencyTask(assemblyPackageDependency).value,
 
     // test
     test in assembly := { () },
@@ -94,6 +97,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   ) ++ inTask(assembly)(assemblyOptionSettings)
     ++ inTask(assemblyPackageScala)(assemblyOptionSettings)
     ++ inTask(assemblyPackageDependency)(assemblyOptionSettings)
+    ++ inTask(assemblyCacheDependency)(assemblyOptionSettings)
     ++ Seq(
     assemblyOption in assemblyPackageScala ~= {
       _.withIncludeBin(false)
@@ -104,7 +108,12 @@ object AssemblyPlugin extends sbt.AutoPlugin {
       _.withIncludeBin(false)
         .withIncludeScala(true)
         .withIncludeDependency(true)
-    }
+    },
+    assemblyOption in assemblyCacheDependency ~= {
+      _.withIncludeBin(false)
+        .withIncludeScala(true)
+        .withIncludeDependency(true)
+    },
   ))
 
   def assemblyOptionSettings: Seq[Setting[_]] = Seq(
@@ -112,6 +121,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
       val s = streams.value
       AssemblyOption()
         .withAssemblyDirectory(s.cacheDirectory / "assembly")
+        .withAssemblyUnzipDirectory(assemblyUnzipDirectory.value)
         .withIncludeBin((assembleArtifact in packageBin).value)
         .withIncludeScala((assembleArtifact in assemblyPackageScala).value)
         .withIncludeDependency((assembleArtifact in assemblyPackageDependency).value)
@@ -120,6 +130,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withExcludedFiles(Assembly.defaultExcludedFiles)
         .withCacheOutput(assemblyCacheOutput.value)
         .withCacheUnzip(assemblyCacheUnzip.value)
+        .withCacheUseHardLinks(assemblyCacheUseHardLinks.value)
         .withAppendContentHash(assemblyAppendContentHash.value)
         .withPrependShellScript(assemblyPrependShellScript.value)
         .withMaxHashLength(assemblyMaxHashLength.?.value)

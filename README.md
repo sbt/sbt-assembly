@@ -393,6 +393,25 @@ lazy val app = (project in file("app"))
   )
 ```
 
+
+### Unzip Caching
+
+When assembling an über artifact, that has many library dependencies, the unzip process can be very IO intensive. These unzipped directories are very suitable for CI systems to persist in between job runs.
+
+```scala
+lazy val app = (project in file("app"))
+  .settings(
+    assemblyUnzipDirectory := Some(localCacheDirectory.value / "sbt-assembly" / "dependencies"),
+    assemblyCacheUnzip := true, // this is the default setting
+    assemblyCacheUseHardLinks := true, // this is experimental but will use a hard link between the files in assemblyUnzipDirectory to assemblyDirectory to avoid additional copy IO
+    // more settings here ...
+  )
+```
+
+To populate the assemblyUnzipDirectory without a full assembly:
+
+    sbt assemblyCacheDependency 
+
 Other Things
 ------------
 

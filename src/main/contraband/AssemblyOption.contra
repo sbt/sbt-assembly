@@ -4,6 +4,8 @@ package sbtassembly
 type AssemblyOption {
   assemblyDirectory: java.io.File @since("0.15.0")
 
+  assemblyUnzipDirectory: java.io.File @since("1.2.0")
+
   ## include compiled class files from itself or subprojects
   includeBin: Boolean! = true @since("0.15.0")
 
@@ -21,6 +23,9 @@ type AssemblyOption {
   cacheOutput: Boolean! = true @since("0.15.0")
 
   cacheUnzip: Boolean! = true @since("0.15.0")
+
+  ## this is experimental but will use a hard link between the files in assemblyUnzipDirectory to assemblyDirectory to avoid additional copy IO
+  cacheUseHardLinks: Boolean! = false @since("1.2.0")
 
   appendContentHash: Boolean! = false @since("0.15.0")
 
