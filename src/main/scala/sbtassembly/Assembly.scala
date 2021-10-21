@@ -16,6 +16,7 @@ object Assembly {
   // used for contraband
   type SeqFileToSeqFile = Seq[File] => Seq[File]
   type SeqString = Seq[String]
+  type SeqShadeRules = Seq[com.eed3si9n.jarjarabrams.ShadeRule]
 
   private val scalaPre213Libraries = Vector(
     "scala-actors",
@@ -34,6 +35,7 @@ object Assembly {
     "scala-reflect")
 
   val defaultExcludedFiles: Seq[File] => Seq[File] = (base: Seq[File]) => Nil
+  val defaultShadeRules: Seq[com.eed3si9n.jarjarabrams.ShadeRule] = Nil
 
   def apply(out0: File, ao: AssemblyOption, po: Seq[PackageOption], mappings: Seq[MappingSet],
       cacheDir: File, log: Logger): File = {

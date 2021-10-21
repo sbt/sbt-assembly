@@ -28,7 +28,7 @@ type AssemblyOption {
 
   maxHashLength: Int @since("0.15.0")
 
-  shadeRules: [com.eed3si9n.jarjarabrams.ShadeRule] @since("0.15.0")
+  shadeRules: sbtassembly.Assembly.SeqShadeRules! = raw"sbtassembly.Assembly.defaultShadeRules" @since("0.15.0")
 
   scalaVersion: String! = "" @since("0.15.0")
 
