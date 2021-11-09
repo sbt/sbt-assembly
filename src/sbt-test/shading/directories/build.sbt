@@ -1,4 +1,4 @@
-scalaVersion in ThisBuild := "2.10.7"
+scalaVersion in ThisBuild := "2.12.15"
 
 assemblyShadeRules in ThisBuild := Seq(
   ShadeRule.rename("somepackage.**" -> "shaded.@1").inAll
