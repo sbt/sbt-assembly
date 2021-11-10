@@ -1,8 +1,8 @@
 lazy val root = (project in file(".")).
   settings(
     version := "0.1",
-    scalaVersion := "2.11.12",
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test",
+    scalaVersion := "2.12.15",
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % "test",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "0.9.29" % "runtime",
     assembly / assemblyOption ~= {
       _.withCacheOutput(true)

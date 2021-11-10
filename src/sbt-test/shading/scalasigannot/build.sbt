@@ -1,12 +1,11 @@
 version in ThisBuild := "1.0-SNAPSHOT"
 organization in ThisBuild := "scalasigannottest"
-scalaVersion in ThisBuild := "2.13.1"
+scalaVersion in ThisBuild := scala213
 
-lazy val scala211 = "2.11.12"
-lazy val scala212 = "2.12.14"
-lazy val scala213 = "2.13.6"
+lazy val scala212 = "2.12.15"
+lazy val scala213 = "2.13.7"
 
-crossScalaVersions in ThisBuild := List(scalaVersion.value, scala211, scala212, scala213)
+crossScalaVersions in ThisBuild := List(scala212, scala213)
 
 
 val shadingSettings: Seq[Def.Setting[_]] = Seq(
