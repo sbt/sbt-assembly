@@ -116,7 +116,7 @@ lazy val app = (project in file("app"))
 
 Excluding an explicit main class from your assembly requires something a little bit different though
 
-```
+```scala
 lazy val app = (project in file("app"))
   .settings(
     assembly / packageOptions ~= { pos =>
