@@ -16,7 +16,7 @@ Effective bug reports are more likely to be fixed. These guidelines explain how 
 
 ## where to file a bug report
 
-- For questions and specific support issues use [stackoverflow][3] with tags `sbt` and `sbt-assembly`. After the quesion is aked, you can ping me on twitter (@eed3si9n) about it, but don't expect immediate response.
+- For questions and specific support issues use [stackoverflow][3] with tags `sbt` and `sbt-assembly`. After the quesion is asked, you can ping me on twitter (@eed3si9n) about it, but don't expect immediate response.
 - For enhancement ideas and confirmed bugs use [github issues][1] to report them.
 
 ## how to file a bug report
