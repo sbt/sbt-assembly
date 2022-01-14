@@ -10,7 +10,7 @@
 > assemblyPackageDependency
 > checkFile "foo-assembly-0.1-deps-[0-9abcdef]{40}.jar"
 
-> set assemblyMaxHashLength in ThisBuild := 5
+> set ThisBuild / assemblyMaxHashLength := 5
 > clean
 > assembly
 > checkFile "foo-assembly-0.1-[0-9abcdef]{5}.jar"

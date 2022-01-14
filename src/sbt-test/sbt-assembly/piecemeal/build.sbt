@@ -1,8 +1,8 @@
-version in ThisBuild := "0.1"
-scalaVersion in ThisBuild := "2.12.15"
+ThisBuild / version := "0.1"
+ThisBuild / scalaVersion := "2.12.15"
 
-assembleArtifact in (ThisBuild, assemblyPackageScala) := false
-assembleArtifact in (ThisBuild, assemblyPackageDependency) := false
+ThisBuild / assemblyPackageScala / assembleArtifact := false
+ThisBuild / assemblyPackageDependency / assembleArtifact := false
 
 lazy val root = (project in file("."))
   .settings(
