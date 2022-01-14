@@ -1,6 +1,6 @@
-version in ThisBuild := "0.1"
-scalaVersion in ThisBuild := "2.12.15"
-assemblyMergeStrategy in ThisBuild := {
+ThisBuild / version := "0.1"
+ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / assemblyMergeStrategy := {
   case "a" => MergeStrategy.concat
   case "b" => MergeStrategy.first
   case "c" => MergeStrategy.last
@@ -9,13 +9,13 @@ assemblyMergeStrategy in ThisBuild := {
   case "f" => MergeStrategy.discard
   case PathList("x", "y") => MergeStrategy.discard
   case x   =>
-    val oldStrategy = (assemblyMergeStrategy in ThisBuild).value
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)
 }
 
 lazy val testmerge = (project in file("."))
   .settings(
-    assemblyJarName in assembly := "foo.jar",
+    assembly / assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
       IO.withTemporaryDirectory { dir ⇒
         IO.unzip(crossTarget.value / "foo.jar", dir)

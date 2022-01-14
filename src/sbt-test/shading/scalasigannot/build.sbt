@@ -1,31 +1,31 @@
-version in ThisBuild := "1.0-SNAPSHOT"
-organization in ThisBuild := "scalasigannottest"
-scalaVersion in ThisBuild := scala213
+ThisBuild / version := "1.0-SNAPSHOT"
+ThisBuild / organization := "scalasigannottest"
+ThisBuild / scalaVersion := scala213
 
 lazy val scala212 = "2.12.15"
 lazy val scala213 = "2.13.7"
 
-crossScalaVersions in ThisBuild := List(scala212, scala213)
+ThisBuild / crossScalaVersions := List(scala212, scala213)
 
 
 val shadingSettings: Seq[Def.Setting[_]] = Seq(
-  assemblyShadeRules in assembly := Seq(
+  assembly / assemblyShadeRules := Seq(
     ShadeRule.rename(
       "to.be.shaded.**" -> "shade.@1"
     ).inAll
   ),
-  assemblyOption in assembly ~= { _.withIncludeScala(false) },
-  assemblyExcludedJars in assembly := {
-    val cp = (fullClasspath in assembly).value
+  assembly / assemblyOption ~= { _.withIncludeScala(false) },
+  assembly / assemblyExcludedJars := {
+    val cp = (assembly / fullClasspath).value
     cp.filterNot {p =>
       p.data.getName.startsWith("tobeshaded")
     }
   },
 
-  artifactClassifier in (sbt.Test, packageBin) := None,
-  artifact in (Compile, assembly) := (artifact in (Compile, assembly)).value.withClassifier(Some("shaded"))
+  sbt.Test / packageBin / artifactClassifier := None,
+  Compile / assembly / artifact := (Compile / assembly / artifact).value.withClassifier(Some("shaded"))
 
-) ++ addArtifact(artifact in (Compile, assembly), assembly).settings
+) ++ addArtifact(Compile / assembly / artifact, assembly).settings
 
 // A jar to be shaded in shadedLib
 lazy val toBeShaded = project.in(file("tobeshaded"))
@@ -38,8 +38,8 @@ lazy val fatLib = project.in(file("fatlib"))
   .settings(
     Seq(
       name := "fatlib",
-      (unmanagedJars in Compile) := {
-        val tbs: File = ((packageBin in Compile) in toBeShaded).value
+      (Compile / unmanagedJars) := {
+        val tbs: File = (toBeShaded / Compile / packageBin).value
         //Seq(sbt.internal.util.Attributed.blank[java.io.File](tbs))
 
         Seq(Attributed.blank[java.io.File](tbs))
@@ -61,7 +61,7 @@ lazy val root = project.in(file("."))
         //val tbs: File = ((packageBin in (Compile, assembly)) in fatLib).value
         //Seq(sbt.internal.util.Attributed.blank[java.io.File](tbs))
 
-        val x = (assembly in (fatLib, Compile)).value
+        val x = (fatLib / Compile / assembly).value
         Seq(Attributed.blank[java.io.File](x))
       }
     )
