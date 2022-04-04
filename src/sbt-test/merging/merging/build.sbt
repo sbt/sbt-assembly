@@ -25,10 +25,10 @@ lazy val testmerge = (project in file("."))
         mustContain(dir / "d", Seq("1", "2", "3"))
         mustContain(dir / "e", Seq("1"))
         mustNotExist(dir / "f")
-        mustContain(dir / "README", Seq("resources"))
+        mustContain(dir / "README_foo", Seq("resources"))
         mustContain(dir / "README_1", Seq("1"))
-        mustContain(dir / "LICENSE", Seq("resources"))
-        mustContain(dir / "LICENSE_1" / "a", Seq("1"))
+        mustContain(dir / "LICENSE_foo", Seq("resources"))
+        mustContain(dir / "LICENSE" / "a", Seq("1"))
         // 80f5a06 -- don't rename License.class
         mustExist(dir / "com" / "example" / "License.class")
         // 7ce9509 -- rename things inside META-INF
@@ -37,8 +37,8 @@ lazy val testmerge = (project in file("."))
         // 032b3a2 -- Don't rename the directories if they contain
         // classes; if they don't, don't rename the contents.
         mustExist(dir / "com" / "example" / "license" / "PublicDomain.class")
-        mustExist(dir / "NOTICE_3" / "README.txt")
-        mustExist(dir / "NOTICE_3" / "LICENSE.txt")
+        mustExist(dir / "NOTICE" / "README_3.txt")
+        mustExist(dir / "NOTICE" / "LICENSE_3.txt")
       }
     })
 

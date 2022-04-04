@@ -16,6 +16,14 @@ Reporting Issues & Contributing
 
 Before you email me, please read [Issue Reporting Guideline](CONTRIBUTING.md) carefully. Twice. (Don't email me)
 
+Major changes since 2.0.0
+-------------------------------
+The plugin has been refactored to use in-memory processing of library entries, in contrast to its old version where library jars are unzipped to disk.
+
+This has positive performance implications, especially for large projects, machines with slow disks (i.e. spinning hard drives) or systems with slow file systems (i.e. WSL1 emulated file access).
+
+It has also streamlined the plugin code for contributors.
+
 Setup
 -----
 
@@ -74,13 +82,12 @@ one) then you'll end up with a fully executable JAR, ready to rock.
 Here is the list of the keys you can rewire that are scoped to current subproject's `assembly` task:
 
     assemblyJarName               test                          mainClass
-    assemblyOutputPath            assemblyOption                assembledMappings
-    assembledMappings
+    assemblyOutputPath            assemblyOption
 
 And here is the list of the keys you can rewite that are scoped globally:
 
-    assemblyAppendContentHash     assemblyCacheOutput           assemblyCacheUnzip
-    assemblyExcludedJars          assemblyMergeStrategy         assemblyShadeRules
+    assemblyAppendContentHash     assemblyCacheOutput           assemblyShadeRules
+    assemblyExcludedJars          assemblyMergeStrategy         assemblyRepeatableBuild
 
 Keys scoped to the subproject should be placed in `.settings(...)` whereas the globally scoped keys can either be placed inside of `.settings(...)` or scoped using `ThisBuild / ` to be shared across multiple subprojects.
 
@@ -163,6 +170,14 @@ ThisBuild / assemblyMergeStrategy := {
 **NOTE**:
 - `ThisBuild / assemblyMergeStrategy` expects a function. You can't do `ThisBuild / assemblyMergeStrategy := MergeStrategy.first`!
 - Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(ThisBuild / assemblyMergeStrategy)` as the above pattern matching example.
+- Renames are processed first, since renamed file targets might match more merge patterns afterwards. By default, LICENSEs and READMEs are renamed before applying every other merge strategy. If you need a custom logic for renaming, create a new merge strategy with the name set to `sbtassembly.MergeStrategy.rename.name` so it is processsed first. See how to create custom `MergeStrategy`s in a later section of this README.
+- There is an edge case that may occasionally fail. If a project has a file that has the same relative path as a directory to be written, an error notification will be written to the console as shown below. To resolve this, create a rename merge strategy.
+
+  ```bash
+    [error] Files to be written at 'shadeio' have the same name as directories to be written:
+    [error]   Jar name = commons-io-2.4.jar, jar org = commons-io, entry target = shadeio/input/Tailer.class (from original source = org/apache/commons/io/input/Tailer.class)
+    [error]   Project name = foo, target = shadeio
+  ```
 
 By the way, the first case pattern in the above using `PathList(...)` is how you can pick `javax/servlet/*` from the first jar. If the default `MergeStrategy.deduplicate` is not working for you, that likely means you have multiple versions of some library pulled by your dependency graph. The real solution is to fix that dependency graph. You can work around it by `MergeStrategy.first` but don't be surprised when you see `ClassNotFoundException`.
 
@@ -192,18 +207,45 @@ Here is the default:
   }
 ```
 
-Custom `MergeStrategy`s can find out where a particular file comes
-from using the `sourceOfFileForMerge` method on `sbtassembly.AssemblyUtils`,
-which takes the temporary directory and one of the files passed into the
-strategy as parameters.
+#### Creating a custom Merge Strategy (since 2.0.0)
+Custom merge strategies can be plugged-in to the `assemblyMergeStrategy` function, for example:
+
+  ```scala
+  import java.nio.file.Paths
+  ...
+  
+  ThisBuild / assemblyMergeStrategy := {
+    case "special-file-to-be-renamed" => new MergeStrategy {
+      override def name = MergeStrategy.rename.name // same name as an existing merge strategy, but should be OK as this class has a different FQCN
+
+      override def merge(conflicts: Vector[Assembly.Dependency]) =
+        Right(Vector(JarEntry(Paths.get("some-other-target"), conflicts.head.stream)))
+    }
+    case x   =>
+      val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+      oldStrategy(x)
+  }
+  ```
+When implementing a `MergeStrategy`, the `name` and the `merge` functions have to be overridden at the minimum.
+
+The input to a `MergeStrategy` is a `Vector` of `Dependency`, where one can access the `target` of type `java.nio.file.Path` and the byte payload of type lazy `InputStream`.
+
+To create a merge result, a `Vector` of `JarEntry` must be returned wrapped in an `Either.Right`, or empty to discard these conflicts from the final jar.
+`JarEntry` only has two fields, a `target` of type `java.nio.file.Path` and the byte payload of type lazy `InputStream`.
+
+To fail the assembly, return an `Either.Left` with an error message.
+
+For more information/examples, see the scaladocs/code in `sbtassembly.Assembly` and `sbtassembly.MergeStrategy`. 
 
 #### Third Party Merge Strategy Plugins
 
-Support for special-case merge strategies beyond the generic scope can be
-provided by companion plugins, below is a non-exhaustive list:
+~~Support for special-case merge strategies beyond the generic scope can be
+provided by companion plugins, below is a non-exhaustive list:~~
 
-* Log4j2 Plugin Caches (`Log4j2Plugins.dat`):
-  <https://github.com/idio/sbt-assembly-log4j2>
+~~* Log4j2 Plugin Caches (`Log4j2Plugins.dat`):~~
+~~<https://github.com/idio/sbt-assembly-log4j2>~~
+
+*The log4j plugin needs to be updated for sbt-assembly version 2.0.0
 
 ### Shading
 
@@ -412,19 +454,11 @@ lazy val app = (project in file("app"))
 
 ### Caching
 
-By default for performance reasons, the result of unzipping any dependency JAR files to disk is cached from run-to-run. This feature can be disabled by setting:
+Caching is implemented by checking all the input dependencies (class and jar files)' latest timestamp and some configuration changes from the build file.
 
-```scala
-ThisBuild / assemblyCacheUnzip := false
+In addition the über JAR is cached so its timestamp changes only when the input changes.
 
-// or
-lazy val app = (project in file("app"))
-  .settings(
-     assembly / assemblyOption ~= { _.withCacheUnzip(false) }
-  )
-```
-
-In addition the über JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
+To disable caching:
 
 ```scala
 ThisBuild / assemblyCacheOutput := false
@@ -435,6 +469,14 @@ lazy val app = (project in file("app"))
      assembly / assemblyOption ~= { _.withCacheOutput(false) }
   )
 ```
+
+#### Jar assembly performance
+
+By default, the setting key `assemblyRepeatableBuild` is set to `true`. This ensures that the jar entries are assembled in a specific manner, resulting in a consistent hash for the jar.
+
+There is actually a performance improvement to be gained if this setting is set to `false`, since jar entries will now be assembled in parallel. The trade-off is, the jar will not have a consistent hash, and thus, caching will not work.
+
+If a repeatable build/consistent jar is not of much importance, one may avail of this feature for improved performance, especially for large projects.
 
 ### Prepending a launch script
 

@@ -1,0 +1,2 @@
+# must fail due to file conflicting with jar directory
+-> assembly
