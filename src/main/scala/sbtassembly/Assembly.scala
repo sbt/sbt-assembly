@@ -391,6 +391,7 @@ object Assembly {
             }
           }
         log.debug("Jar hash: " + fullSha1)
+        log.info("Built: " + builtAssemblyJar.toPath)
         builtAssemblyJar
       }
       if (ao.cacheOutput) cachedAssembly(inputs, cacheDir, ao.scalaVersion, log)(buildAssembly)
