@@ -12,7 +12,7 @@ type AssemblyOption {
 
   excludedJars: sbt.Keys.Classpath! = raw"Nil" @since("0.15.0")
 
-  repeatableBuild: Boolean! = false @since("2.0.0")
+  repeatableBuild: Boolean! = true @since("2.0.0")
 
   mergeStrategy: sbtassembly.MergeStrategy.StringToMergeStrategy! = raw"sbtassembly.MergeStrategy.defaultMergeStrategy" @since("0.15.0")
 

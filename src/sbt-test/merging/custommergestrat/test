@@ -1,4 +1,3 @@
-# must fail due to file conflicting with jar directory
 > assembly
 
 # check if the 'sbtassembly' file was renamed to 'some-other-target' and has correct contents

@@ -16,14 +16,6 @@ Reporting Issues & Contributing
 
 Before you email me, please read [Issue Reporting Guideline](CONTRIBUTING.md) carefully. Twice. (Don't email me)
 
-Major changes since 2.0.0
--------------------------------
-The plugin has been refactored to use in-memory processing of library entries, in contrast to its old version where library jars are unzipped to disk.
-
-This has positive performance implications, especially for large projects, machines with slow disks (i.e. spinning hard drives) or systems with slow file systems (i.e. WSL1 emulated file access).
-
-It has also streamlined the plugin code for contributors.
-
 Setup
 -----
 
@@ -472,9 +464,15 @@ lazy val app = (project in file("app"))
 
 #### Jar assembly performance
 
-By default, the setting key `assemblyRepeatableBuild` is set to `true`. This ensures that the jar entries are assembled in a specific manner, resulting in a consistent hash for the jar.
+By default, the setting key `assemblyRepeatableBuild` is set to `true`. This ensures that the jar entries are assembled in a specific order, resulting in a consistent hash for the jar.
 
 There is actually a performance improvement to be gained if this setting is set to `false`, since jar entries will now be assembled in parallel. The trade-off is, the jar will not have a consistent hash, and thus, caching will not work.
+
+To set the repeatable build to false:
+
+```scala 
+ThisBuild / assemblyRepeatableBuild := false
+```
 
 If a repeatable build/consistent jar is not of much importance, one may avail of this feature for improved performance, especially for large projects.
 
@@ -485,7 +483,7 @@ Your can prepend a launch script to the über jar. This script will be a valid s
 ```scala
 import sbtassembly.AssemblyPlugin.defaultUniversalScript
 
-ThisBuild / assemblyPrependShellScript := = Some(defaultUniversalScript(shebang = false)))
+ThisBuild / assemblyPrependShellScript := = Some(defaultUniversalScript(shebang = false))
 
 lazy val app = (project in file("app"))
   .settings(

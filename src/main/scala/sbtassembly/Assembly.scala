@@ -25,6 +25,7 @@ import java.time.Instant
 import java.util.jar.{ Attributes => JAttributes, JarFile, Manifest => JManifest }
 import scala.collection.GenSeq
 import scala.collection.JavaConverters._
+import scala.language.postfixOps
 import scala.tools.nsc.io.Streamable
 
 object Assembly {
@@ -193,7 +194,7 @@ object Assembly {
    * @param po package options configured via the build
    * @param cacheDir the task cache directory
    * @param log the sbt logger
-   * @return the built jar as a [[File]]
+   * @return the built jar as an [[sbt.File]]
    */
   def assemble(
       targetJarName: String,
@@ -245,8 +246,7 @@ object Assembly {
       }
     }
 
-    val shadeRules = ao.shadeRules
-    val clazzShader = shader(shadeRules.filter(_.isApplicableToCompiling))
+    val classShader = shader(ao.shadeRules.filter(_.isApplicableToCompiling))
     val classByParentDir =
       if (!ao.includeBin) Vector.empty[(File, File)]
       else
@@ -254,12 +254,12 @@ object Assembly {
           .flatMap { dir =>
             (dir.data ** (-DirectoryFilter)).get.map(dir.data -> _)
           }
-    val clazzMappings =
-      timed(Level.Info, "Collect project classes") {
+    val classMappings =
+      timed(Level.Debug, "Collect project classes") {
         classByParentDir
           .flatMap { case (parentDir, file) =>
             val originalTarget = file.relativeTo(parentDir).get.toPath
-            clazzShader(originalTarget.toString, () => new BufferedInputStream(new FileInputStream(file)))
+            classShader(originalTarget.toString, () => new BufferedInputStream(new FileInputStream(file)))
               .map { case (shadedName, stream) =>
                 val newTarget = Paths.get(shadedName)
                 Project(targetJarName, originalTarget, newTarget, stream)
@@ -269,7 +269,7 @@ object Assembly {
 
     val jarShader = (module: ModuleCoordinate) =>
       shader(
-        shadeRules
+        ao.shadeRules
           .filter(rule =>
             rule.isApplicableToAll ||
               rule.isApplicableTo(
@@ -277,7 +277,7 @@ object Assembly {
               )
           )
       )
-    val (jarFiles, jarFileEntries) = timed(Level.Info, "Collect dependency entries") {
+    val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect dependency entries") {
       filteredJars.par.map { jar =>
         val module = jar.metadata
           .get(moduleID.key)
@@ -300,16 +300,12 @@ object Assembly {
     }
     try {
       val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
-        (clazzMappings ++ jarFileEntries.flatten)
+        (classMappings ++ jarFileEntries.flatten)
           .partition(mapping => ao.mergeStrategy(mapping.target.toString).name == MergeStrategy.rename.name)
       }
       val renames = timed(Level.Debug, "Process renames") {
-        merge(
-          mappingsToRename,
-          ao.mergeStrategy,
-          log
-        ) // convert renames back to dependency for second pass merge
-          .flatMap { mergedEntry =>
+        merge(mappingsToRename, ao.mergeStrategy, log)
+          .flatMap { mergedEntry => // convert renames back to dependency for second pass merge
             mergedEntry.entries
               .zip(mergedEntry.origins)
               .map {
@@ -319,7 +315,7 @@ object Assembly {
               }
           }
       }
-      val mergeStrategiesByPathList = timed(Level.Info, "Collect merge strategies") {
+      val mergeStrategiesByPathList = timed(Level.Debug, "Collect merge strategies") {
         (renames ++ others)
           .groupBy(_.target)
           .seq
@@ -343,10 +339,10 @@ object Assembly {
         ao.appendContentHash :+:
         HNil
       val buildAssembly = () => {
-        val mergedEntries = timed(Level.Info, "Merge all conflicting jar entries") {
+        val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries") {
           merge(renames ++ others, ao.mergeStrategy, log)
         }
-        timed(Level.Info, "Finding remaining conflicts that were not merged") {
+        timed(Level.Debug, "Finding remaining conflicts that were not merged") {
           reportConflictsMissedByTheMerge(mergedEntries, log)
         }
         val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
@@ -360,7 +356,7 @@ object Assembly {
           .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
           .getOrElse(System.currentTimeMillis())
 
-        timed(Level.Info, "Create jar") {
+        timed(Level.Debug, "Create jar") {
           IO.delete(output)
           createJar(output, jarEntriesToWrite, jarManifest, localTime)
         }
@@ -394,7 +390,7 @@ object Assembly {
               }
             }
           }
-        log.info("Jar hash: " + fullSha1)
+        log.debug("Jar hash: " + fullSha1)
         builtAssemblyJar
       }
       if (ao.cacheOutput) cachedAssembly(inputs, cacheDir, ao.scalaVersion, log)(buildAssembly)
@@ -497,11 +493,11 @@ object Assembly {
             log.info("Assembly jar up to date: " + previousOutput.get.toPath)
             previousOutput.get
           case (true, true) =>
-            log.info("Building assembly jar due to changed inputs")
+            log.debug("Building assembly jar due to changed inputs...")
             IO.delete(previousOutput.get)
             buildAssembly()
           case (_, _) =>
-            log.debug("Building assembly jar due to missing output")
+            log.debug("Building assembly jar due to missing output...")
             buildAssembly()
         }
       }
@@ -517,8 +513,7 @@ object Assembly {
   ): Unit = {
     jarFileSystemResource(URI.create(s"jar:file:${output.toPath.toString}")) { jarFs =>
       val manifestPath = jarFs.getPath("META-INF/MANIFEST.MF")
-      if (manifestPath.getParent != null && !Files.exists(manifestPath.getParent))
-        Files.createDirectories(manifestPath.getParent)
+      Files.createDirectories(manifestPath.getParent)
       val manifestOut = Files.newOutputStream(
         manifestPath,
         StandardOpenOption.CREATE
@@ -532,7 +527,7 @@ object Assembly {
           if (path.getParent != null && !Files.exists(path.getParent)) Files.createDirectories(path.getParent)
           jarEntryInputStreamResource(entry) { inputStream =>
             jarEntryOutputStreamResource(path) { outputStream =>
-              IO.transferAndClose(inputStream, outputStream)
+              IO.transfer(inputStream, outputStream)
             }
           }
         }
@@ -597,21 +592,22 @@ object Assembly {
       mergedEntries
         .groupBy(entry => entry.mergeStrategy.getClass.getName + "_" + entry.mergeStrategy.name)
         .seq // we need to switch to sequential here to not mess up the detail logs
-        .foreach { case (strategyId, entries) =>
-          val mergeStrategy = entries.head.mergeStrategy
-          val entriesToNotify = entries.filter(entry => entry.origins.size >= mergeStrategy.notifyThreshold)
-          val totalMerged = entriesToNotify.map(_.origins.size).sum
-          if (totalMerged > 0) {
-            val custom = if (strategyId.startsWith(this.getClass.getPackageName)) "" else " (Custom)"
-            val notifyDetails =
-              if (mergeStrategy.detailLogLevel == Level.Debug) " (Run the task at debug level to see the details)"
-              else ""
-            log.log(
-              mergeStrategy.summaryLogLevel,
-              s"$totalMerged file(s) merged using strategy '${mergeStrategy.name}$custom'$notifyDetails"
-            )
-            log.log(mergeStrategy.detailLogLevel, entriesToNotify.seq.mkString(""))
-          }
+        .foreach {
+          case (strategyId, entries) => // TODO figure out how to use BufferedAppender so we can keep this parallel
+            val mergeStrategy = entries.head.mergeStrategy
+            val entriesToNotify = entries.filter(entry => entry.origins.size >= mergeStrategy.notifyThreshold)
+            val totalMerged = entriesToNotify.map(_.origins.size).sum
+            if (totalMerged > 0) {
+              val custom = if (strategyId.startsWith(this.getClass.getPackage.getName)) "" else " (Custom)"
+              val notifyDetails =
+                if (mergeStrategy.detailLogLevel == Level.Debug) " (Run the task at debug level to see the details)"
+                else ""
+              log.log(
+                mergeStrategy.summaryLogLevel,
+                s"$totalMerged file(s) merged using strategy '${mergeStrategy.name}$custom'$notifyDetails"
+              )
+              log.log(mergeStrategy.detailLogLevel, entriesToNotify.seq.mkString(""))
+            }
         }
     }
     mergedEntries.toVector
@@ -665,7 +661,7 @@ object Assembly {
   }
 
   private[sbtassembly] def hash(file: File): String =
-    bytesToString(sbtassembly.Assembly.sha1.digest(FileInfo.hash(file).hash.seq.toArray))
+    bytesToString(sha1.digest(FileInfo.hash(file).hash.seq.toArray))
 
   private[sbtassembly] def sha1 = MessageDigest.getInstance("SHA-1")
 
