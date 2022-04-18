@@ -304,7 +304,7 @@ object Assembly {
           .partition(mapping => ao.mergeStrategy(mapping.target.toString).name == MergeStrategy.rename.name)
       }
       val renames = timed(Level.Debug, "Process renames") {
-        merge(mappingsToRename, ao.mergeStrategy, log)
+        merge(mappingsToRename, path => Option(ao.mergeStrategy(path)), log)
           .flatMap { mergedEntry => // convert renames back to dependency for second pass merge
             mergedEntry.entries
               .zip(mergedEntry.origins)
@@ -325,12 +325,8 @@ object Assembly {
           }
       }
       val (jarManifest, timestamp) = createManifest(po, log)
-      val inputs = lastModified(
-        classByParentDir.map { case (_, clazz) =>
-          clazz
-        }.toSet ++
-          filteredJars.map(_.data).toSet
-      ) :+:
+      val (_, classes) = classByParentDir.unzip
+      val inputs = lastModified(classes.toSet ++ filteredJars.map(_.data).toSet) :+:
         mergeStrategiesByPathList :+:
         jarManifest :+:
         ao.repeatableBuild :+:
@@ -339,8 +335,14 @@ object Assembly {
         ao.appendContentHash :+:
         HNil
       val buildAssembly = () => {
-        val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries") {
-          merge(renames ++ others, ao.mergeStrategy, log)
+        val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
+          // exclude renames from the second pass
+          val secondPassMergeStrategy = (path: String) => {
+            val mergeStrategy = ao.mergeStrategy(path)
+            if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
+            else Option(mergeStrategy)
+          }
+          merge(renames ++ others, secondPassMergeStrategy, log)
         }
         timed(Level.Debug, "Finding remaining conflicts that were not merged") {
           reportConflictsMissedByTheMerge(mergedEntries, log)
@@ -574,14 +576,16 @@ object Assembly {
 
   private[sbtassembly] def merge(
       mappings: Vector[Dependency],
-      mergeStrategies: String => MergeStrategy,
+      mergeStrategies: String => Option[MergeStrategy],
       log: Logger
   ): Vector[MergedEntry] = {
     val (successfullyMerged, failures) = mappings
       .groupBy(_.target)
       .par
       .map { case (target, mappings) =>
-        MergeStrategy.merge(mergeStrategies(target.toString), mappings)
+        mergeStrategies(target.toString)
+          .map(MergeStrategy.merge(_, mappings))
+          .getOrElse(MergeStrategy.merge(MergeStrategy.deduplicate, mappings))
       }
       .partition(_.isRight)
     if (failures.nonEmpty) {
