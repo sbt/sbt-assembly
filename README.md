@@ -139,10 +139,11 @@ of the following built-in strategies or writing a custom one:
 * `MergeStrategy.first` picks the first of the matching files in classpath order
 * `MergeStrategy.last` picks the last one
 * `MergeStrategy.singleOrError` bails out with an error message on conflict
-* `MergeStrategy.concat` simply concatenates all matching files and includes the result
-* `MergeStrategy.filterDistinctLines` also concatenates, but leaves out duplicates along the way
+* `MergeStrategy.concat` simply concatenates all matching files and includes the result. There is also an overload that accepts a line separator for formatting the result
+* `MergeStrategy.filterDistinctLines` also concatenates, but leaves out duplicates along the way. There is also an overload that accepts a `Charset` for reading the lines
 * `MergeStrategy.rename` renames the files originating from jar files
 * `MergeStrategy.discard` simply discards matching files
+* `MergeStrategy.preferProject` will choose the first project file over library files if present. Otherwise, it works like `MergeStrategy.first`
 
 The mapping of path names to merge strategies is done via the setting
 `assemblyMergeStrategy` which can be augmented as follows:
@@ -160,10 +161,13 @@ ThisBuild / assemblyMergeStrategy := {
 ```
 
 **NOTE**:
+- Actually, a merge strategy serves two purposes:
+  * To merge conflicting files
+  * To transform a single file (despite the naming), such as in the case of a `MergeStrategy.rename`. Sometimes, the transformation is a pass-through, as in the case of a `MergeStrategy.deduplicate` if there are no conflicts on a `target` path.
 - `ThisBuild / assemblyMergeStrategy` expects a function. You can't do `ThisBuild / assemblyMergeStrategy := MergeStrategy.first`!
 - Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(ThisBuild / assemblyMergeStrategy)` as the above pattern matching example.
-- Renames are processed first, since renamed file targets might match more merge patterns afterwards. By default, LICENSEs and READMEs are renamed before applying every other merge strategy. If you need a custom logic for renaming, create a new merge strategy with the name set to `sbtassembly.MergeStrategy.rename.name` so it is processsed first. See how to create custom `MergeStrategy`s in a later section of this README.
-- There is an edge case that may occasionally fail. If a project has a file that has the same relative path as a directory to be written, an error notification will be written to the console as shown below. To resolve this, create a rename merge strategy.
+- Renames are processed first, since renamed file targets might match more merge patterns afterwards. By default, LICENSEs and READMEs are renamed before applying every other merge strategy. If you need a custom logic for renaming, create a new rename merge strategy so it is processsed first, along with the custom logic. See how to create custom `MergeStrategy`s in a later section of this README.
+- There is an edge case that may occasionally fail. If a project has a file that has the same relative path as a directory to be written, an error notification will be written to the console as shown below. To resolve this, create a shade rule or a new merge strategy.
 
   ```bash
     [error] Files to be written at 'shadeio' have the same name as directories to be written:
@@ -202,32 +206,41 @@ Here is the default:
 #### Creating a custom Merge Strategy (since 2.0.0)
 Custom merge strategies can be plugged-in to the `assemblyMergeStrategy` function, for example:
 
-  ```scala
-  import java.nio.file.Paths
-  ...
-  
-  ThisBuild / assemblyMergeStrategy := {
-    case "special-file-to-be-renamed" => new MergeStrategy {
-      override def name = MergeStrategy.rename.name // same name as an existing merge strategy, but should be OK as this class has a different FQCN
-
-      override def merge(conflicts: Vector[Assembly.Dependency]) =
-        Right(Vector(JarEntry(Paths.get("some-other-target"), conflicts.head.stream)))
-    }
-    case x   =>
-      val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
-      oldStrategy(x)
+```scala 
+ThisBuild / assemblyMergeStrategy := {
+  case "matching-file" => CustomMergeStrategy("my-custom-merge-strat") { conflicts =>
+    // NB! useless example
+    Right(Vector(JarEntry("my-custom-path".toPath, conflicts.head.stream)))
   }
-  ```
-When implementing a `MergeStrategy`, the `name` and the `merge` functions have to be overridden at the minimum.
+  case x   =>
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+    oldStrategy(x)
+}
+```
 
-The input to a `MergeStrategy` is a `Vector` of `Dependency`, where one can access the `target` of type `java.nio.file.Path` and the byte payload of type lazy `InputStream`.
+There is also a constructor specifically for a rename, so it gets processed first along with the built-in rename merge strategy, before other merge strategies, as mentioned in a previous section.
+
+```scala
+CustomMergeStrategy.rename { conflicts =>
+  // same as other merge strategies
+}
+```
+
+The `CustomMergeStrategy` accepts a `name` and a `notifyIfGTE` that affects how the result is reported in the logs.
+Please see the scaladoc for more details.
+
+Finally, to perform the actual merge/transformation logic, a function has to be provided. The function acceptsa `Vector` of `Dependency`, where you can access the `target` of type `java.nio.file.Path` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
 
 To create a merge result, a `Vector` of `JarEntry` must be returned wrapped in an `Either.Right`, or empty to discard these conflicts from the final jar.
 `JarEntry` only has two fields, a `target` of type `java.nio.file.Path` and the byte payload of type lazy `InputStream`.
 
 To fail the assembly, return an `Either.Left` with an error message.
 
-For more information/examples, see the scaladocs/code in `sbtassembly.Assembly` and `sbtassembly.MergeStrategy`. 
+For more information/examples, see the scaladoc/source code in `sbtassembly.Assembly` and `sbtassembly.MergeStrategy`.
+
+**NOTE**:
+- The `name` parameter will be distinguished from a built-in strategy. For example, the `name`=`First` will execute its custom logic along with the built-in `MergeStrategy.first`. They cannot cancel/override one another. In fact, the custom merge strategy will be logged as `First (Custom)` for clarity.
+- However, you should still choose a unique `name` for a custom merge strategy within the build. Even if all built-in and custom merge strategies are guaranteed to execute if they match a pattern and regardless of their `name`s, similarly-named custom merge strategies will have their log reports joined. YMMV, but it is discouraged to use duplicate names.
 
 #### Third Party Merge Strategy Plugins
 

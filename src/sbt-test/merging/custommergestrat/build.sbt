@@ -1,13 +1,6 @@
-import sbtassembly.Assembly._
-import sbtassembly.MergeStrategy
-import java.nio.file.Paths
-
 ThisBuild / assemblyMergeStrategy := {
-  case "sbtassembly" => new MergeStrategy {
-    override def name = MergeStrategy.rename.name // same name as an existing merge strategy, but should be OK as this class has a different FQCN
-
-    override def merge(conflicts: Vector[Assembly.Dependency]) =
-      Right(Vector(JarEntry(Paths.get("some-other-target"), conflicts.head.stream)))
+  case "sbtassembly" => CustomMergeStrategy.rename { conflicts =>
+      Right(Vector(JarEntry("some-other-target".toPath, conflicts.head.stream)))
   }
   case x   =>
     val oldStrategy = (ThisBuild / assemblyMergeStrategy).value

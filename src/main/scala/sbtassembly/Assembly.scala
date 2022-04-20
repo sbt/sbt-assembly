@@ -23,6 +23,7 @@ import java.nio.file.{ Path, _ }
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.jar.{ Attributes => JAttributes, JarFile, Manifest => JManifest }
+import scala.annotation.tailrec
 import scala.collection.GenSeq
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
@@ -32,14 +33,16 @@ object Assembly {
   // used for contraband
   type SeqString = Seq[String]
   type SeqShadeRules = Seq[com.eed3si9n.jarjarabrams.ShadeRule]
+  type LazyInputStream = () => InputStream
 
   val defaultShadeRules: Seq[com.eed3si9n.jarjarabrams.ShadeRule] = Nil
   val newLine: String = System.lineSeparator()
   val indent: String = " " * 2
   val newLineIndented: String = newLine + indent
 
+  private[sbtassembly] val CustomLabel = " (Custom)"
   private[sbtassembly] type Inputs = FilesInfo[ModifiedFileInfo] :+:
-    Map[String, String] :+:
+    Map[String, (Boolean, String)] :+:
     JManifest :+:
     Boolean :+:
     Option[Seq[String]] :+:
@@ -74,7 +77,7 @@ object Assembly {
    * @param target the path to write in the jar
    * @param stream the byte payload
    */
-  case class JarEntry(target: Path, stream: () => InputStream) {
+  case class JarEntry(target: Path, stream: LazyInputStream) {
     override def toString = s"Jar entry = $target"
   }
 
@@ -109,7 +112,7 @@ object Assembly {
     /**
      * @return a lazy payload of bytes that represents the actual content to be written
      */
-    def stream: () => InputStream
+    def stream: LazyInputStream
 
     /**
      * @return the originating module/jar entry if present
@@ -134,7 +137,7 @@ object Assembly {
    * @param target the target path to be written to the assembly jar, after applying assembly processing (shading, merging, etc)
    * @param stream a lazy payload of bytes that represents the actual content to be written
    */
-  case class Project(name: String, source: Path, target: Path, stream: () => InputStream) extends Dependency {
+  case class Project(name: String, source: Path, target: Path, stream: LazyInputStream) extends Dependency {
     override def isProjectDependency = true
     override def module: Option[ModuleCoordinate] = Option.empty
     override def toString = s"Project name = $name, ${renamedTargetInfo(source, target)}"
@@ -299,29 +302,14 @@ object Assembly {
       }.unzip
     }
     try {
-      val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
-        (classMappings ++ jarFileEntries.flatten)
-          .partition(mapping => ao.mergeStrategy(mapping.target.toString).name == MergeStrategy.rename.name)
-      }
-      val renames = timed(Level.Debug, "Process renames") {
-        merge(mappingsToRename, path => Option(ao.mergeStrategy(path)), log)
-          .flatMap { mergedEntry => // convert renames back to dependency for second pass merge
-            mergedEntry.entries
-              .zip(mergedEntry.origins)
-              .map {
-                case (entry, p @ Project(name, source, _, stream)) => p.copy(name, source, entry.target, stream)
-                case (entry, l @ Library(moduleCoord, source, _, stream)) =>
-                  l.copy(moduleCoord, source, entry.target, stream)
-              }
-          }
-      }
+      val candidates = classMappings ++ jarFileEntries.flatten
       val mergeStrategiesByPathList = timed(Level.Debug, "Collect merge strategies") {
-        (renames ++ others)
+        candidates
           .groupBy(_.target)
           .seq
           .map { case (target, _) =>
             val mergeStrategy = ao.mergeStrategy(target.toString)
-            target.toString -> (mergeStrategy.getClass.getName + "_" + mergeStrategy.name)
+            target.toString -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
           }
       }
       val (jarManifest, timestamp) = createManifest(po, log)
@@ -335,6 +323,13 @@ object Assembly {
         ao.appendContentHash :+:
         HNil
       val buildAssembly = () => {
+        val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
+          candidates
+            .partition(mapping => ao.mergeStrategy(mapping.target.toString).name == MergeStrategy.rename.name)
+        }
+        val renames = timed(Level.Debug, "Process renames") {
+          processRenames(mappingsToRename, ao.mergeStrategy, log)
+        }
         val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
           // exclude renames from the second pass
           val secondPassMergeStrategy = (path: String) => {
@@ -574,6 +569,21 @@ object Assembly {
     manifest -> time
   }
 
+  private[sbtassembly] def processRenames(
+      mappingsToRename: Vector[Dependency],
+      mergeStrategies: String => MergeStrategy,
+      log: Logger
+  ): Vector[Dependency] = merge(mappingsToRename, path => Option(mergeStrategies(path)), log)
+    .flatMap { mergedEntry => // convert renames back to dependency for second pass merge
+      mergedEntry.entries
+        .zip(mergedEntry.origins)
+        .map {
+          case (entry, p @ Project(name, source, _, stream)) => p.copy(name, source, entry.target, stream)
+          case (entry, l @ Library(moduleCoord, source, _, stream)) =>
+            l.copy(moduleCoord, source, entry.target, stream)
+        }
+    }
+
   private[sbtassembly] def merge(
       mappings: Vector[Dependency],
       mergeStrategies: String => Option[MergeStrategy],
@@ -595,15 +605,15 @@ object Assembly {
     val mergedEntries = successfullyMerged.map(_.right.get)
     if (mergedEntries.nonEmpty) {
       mergedEntries
-        .groupBy(entry => entry.mergeStrategy.getClass.getName + "_" + entry.mergeStrategy.name)
+        .groupBy(entry => entry.mergeStrategy.isBuiltIn -> entry.mergeStrategy.name)
         .seq // we need to switch to sequential here to not mess up the detail logs
         .foreach {
-          case (strategyId, entries) => // TODO figure out how to use BufferedAppender so we can keep this parallel
+          case ((isBuiltIn, _), entries) => // TODO figure out how to use BufferedAppender so we can keep this parallel
             val mergeStrategy = entries.head.mergeStrategy
             val entriesToNotify = entries.filter(entry => entry.origins.size >= mergeStrategy.notifyThreshold)
             val totalMerged = entriesToNotify.map(_.origins.size).sum
             if (totalMerged > 0) {
-              val custom = if (strategyId.startsWith(this.getClass.getPackage.getName)) "" else " (Custom)"
+              val custom = if (isBuiltIn) "" else CustomLabel
               val notifyDetails =
                 if (mergeStrategy.detailLogLevel == Level.Debug) " (Run the task at debug level to see the details)"
                 else ""
@@ -675,6 +685,7 @@ object Assembly {
       val messageDigest = sha1
       val buffer = new Array[Byte](8192)
 
+      @tailrec
       def read(): Unit = {
         val byteCount = in.read(buffer)
         if (byteCount >= 0) {

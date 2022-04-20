@@ -4,6 +4,8 @@ import com.eed3si9n.jarjarabrams
 import sbt.Keys._
 import sbt._
 
+import java.nio.file.{ Path => JPath, Paths }
+
 object AssemblyPlugin extends sbt.AutoPlugin {
   override def requires = plugins.JvmPlugin
   override def trigger = allRequirements
@@ -11,6 +13,8 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   object autoImport extends AssemblyKeys {
     val Assembly = sbtassembly.Assembly
     val MergeStrategy = sbtassembly.MergeStrategy
+    val JarEntry = sbtassembly.Assembly.JarEntry
+    val CustomMergeStrategy = sbtassembly.CustomMergeStrategy
     val PathList = sbtassembly.PathList
     val baseAssemblySettings = AssemblyPlugin.baseAssemblySettings
     val ShadeRule = com.eed3si9n.jarjarabrams.ShadeRule
@@ -20,6 +24,9 @@ object AssemblyPlugin extends sbt.AutoPlugin {
           moduleId.toVector
             .map(m => jarjarabrams.ModuleCoordinate(m.organization, m.name, m.revision)): _*
         )
+    }
+    implicit class PathOps(s: String) {
+      def toPath: JPath = Paths.get(s)
     }
   }
   import autoImport.{ baseAssemblySettings => _, Assembly => _, _ }
@@ -57,7 +64,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyPackageDependency := Assembly.assemblyTask(assemblyPackageDependency).value,
 
     // test
-    test in assembly := Unit,
+    test in assembly := {},
     test in assemblyPackageScala := (test in assembly).value,
     test in assemblyPackageDependency := (test in assembly).value,
 

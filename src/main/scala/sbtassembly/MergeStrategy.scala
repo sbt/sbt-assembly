@@ -13,9 +13,11 @@ import scala.collection.JavaConverters._
 import scala.reflect.io.Streamable
 
 /**
- * Class for merging files that shares the same target path
+ * Merges dependencies that share the same target path or transforms them before adding to the assembly
+ *
+ * Return a `Right[Vector[JarEntry]]]` for a successful merge or a `Left[String]` of an error message to fail the process
  */
-trait MergeStrategy {
+sealed trait MergeStrategy extends (Vector[Dependency] => Either[String, Vector[JarEntry]]) {
 
   /**
    * A descriptive name of the merge strategy which will be used in logging the merge results
@@ -27,9 +29,9 @@ trait MergeStrategy {
   /**
    * Report the merge counts only if the number of files to be merged are >= this threshold
    *
-   * @return
+   * @return the threshold
    */
-  def notifyThreshold = 2
+  def notifyThreshold: Int
 
   /**
    * Log details of the merge only if assembly / logLevel is set to this or a less-restrictive level
@@ -46,14 +48,17 @@ trait MergeStrategy {
   def summaryLogLevel: Level.Value = Level.Info
 
   /**
-   * Merges the 'conflicts' - files that are supposed to be written on the same target path on the jar, or files
-   *  that match a specific [[PathList]] rule
+   * Namespaces built-in strategies from user-provided ones
    *
-   * @param conflicts files that need to be merged due to having the same target path on the jar or matching
-   *                  a specific [[PathList]] rule
-   * @return an Either.Right of a JarEntry for a successful merge or an Either.Left of a JarEntry for a failed merge
+   * @return if this merge strategy is a built-in/internal instance provided by the plugin
    */
-  def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]]
+  def isBuiltIn: Boolean = true
+}
+abstract private[sbtassembly] class InternalMergeStrategy(val name: String, val notifyThreshold: Int)
+    extends MergeStrategy
+abstract private[sbtassembly] class CustomMergeStrategy(val name: String, val notifyThreshold: Int)
+    extends MergeStrategy {
+  override val isBuiltIn = false
 }
 
 object MergeStrategy {
@@ -61,59 +66,37 @@ object MergeStrategy {
   private val FileExtension = """([.]\w+)$""".r
   private val dependencyStreamResource = Using.resource((dependency: Dependency) => dependency.stream())
 
-  private[sbtassembly] def merge(
-      strategy: MergeStrategy,
-      conflicts: Vector[Dependency]
-  ): Either[String, MergedEntry] =
-    strategy
-      .merge(conflicts)
-      .right
-      .map(entry => MergedEntry(entry, conflicts, strategy))
-
   /**
    * Picks the first of the conflicting files in classpath order
    */
-  val first: MergeStrategy = new MergeStrategy {
-    val name: String = "First"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] =
-      Right(Vector(JarEntry(conflicts.head.target, conflicts.head.stream)))
+  val first: MergeStrategy = MergeStrategy("First") { conflicts =>
+    Right(Vector(JarEntry(conflicts.head.target, conflicts.head.stream)))
   }
 
   /**
    * Picks the first of the conflicting files in classpath order
    */
-  val last: MergeStrategy = new MergeStrategy {
-    val name: String = "Last"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] =
-      Right(Vector(JarEntry(conflicts.last.target, conflicts.last.stream)))
+  val last: MergeStrategy = MergeStrategy("Last") { conflicts =>
+    Right(Vector(JarEntry(conflicts.last.target, conflicts.last.stream)))
   }
 
   /**
    * Picks the dependency that is the first project/internal dependency, otherwise picks the first library/external dependency
    */
-  val favorProjectThenFirstLibrary: MergeStrategy = new MergeStrategy {
-    val name: String = "FavorProjectThenFirstExternal"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] = {
-      val entry = conflicts.find(_.isProjectDependency).getOrElse(conflicts.head)
-      Right(Vector(JarEntry(entry.target, entry.stream)))
-    }
+  val preferProject: MergeStrategy = MergeStrategy("PreferProject") { conflicts =>
+    val entry = conflicts.find(_.isProjectDependency).getOrElse(conflicts.head)
+    Right(Vector(JarEntry(entry.target, entry.stream)))
   }
 
   /**
    * Fails the merge on conflict
    */
-  val singleOrError: MergeStrategy = new MergeStrategy {
-    val name: String = "SingleOrError"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] =
-      if (conflicts.size == 1) Right(conflicts.map(conflict => JarEntry(conflict.target, conflict.stream)))
-      else
-        Left(
-          s"$name found multiple files with the same target path:$newLineIndented${conflicts.mkString(newLineIndented)}"
-        )
+  val singleOrError: MergeStrategy = MergeStrategy("SingleOrError") { conflicts =>
+    if (conflicts.size == 1) Right(conflicts.map(conflict => JarEntry(conflict.target, conflict.stream)))
+    else
+      Left(
+        s"SingleOrError found multiple files with the same target path:$newLineIndented${conflicts.mkString(newLineIndented)}"
+      )
   }
 
   /**
@@ -125,70 +108,52 @@ object MergeStrategy {
    * Concatenates the content of all conflicting files into one entry
    * @param separator a custom content separator, defaulted to the System line separator
    */
-  def concat(separator: String = newLine): MergeStrategy = new MergeStrategy {
-    val name: String = "Concat"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] = {
-      val streamsWithNewLine = conflicts.map(_.stream()).map(AppendEofInputStream(_, separator))
-      val concatenatedStream = () => new SequenceInputStream(Collections.enumeration(streamsWithNewLine.asJava))
-      Right(Vector(JarEntry(conflicts.head.target, concatenatedStream)))
-    }
+  def concat(separator: String = newLine): MergeStrategy = MergeStrategy("Concat") { conflicts =>
+    val streamsWithNewLine = conflicts.map(_.stream()).map(AppendEofInputStream(_, separator))
+    val concatenatedStream = () => new SequenceInputStream(Collections.enumeration(streamsWithNewLine.asJava))
+    Right(Vector(JarEntry(conflicts.head.target, concatenatedStream)))
   }
 
   /**
    * Discards all conflicts
    */
-  val discard: MergeStrategy = new MergeStrategy {
-    val name: String = "Discard"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] = Right(Vector.empty)
-
-    override val notifyThreshold = 1
-  }
+  val discard: MergeStrategy = MergeStrategy("Discard", 1)(_ => Right(Vector.empty))
 
   /**
    * Verifies if all the conflicts have the same content, otherwise error out
    */
-  val deduplicate: MergeStrategy = new MergeStrategy {
-    val name: String = "Deduplicate"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] = {
-      val conflictContents = conflicts.map(_.stream()).map(Streamable.bytes(_))
-      val fingerprints = Set() ++ conflictContents.map(sbtassembly.Assembly.sha1Content)
-      if (fingerprints.size == 1)
-        Right(Vector(JarEntry(conflicts.head.target, () => new ByteArrayInputStream(conflictContents.head))))
-      else
-        Left(
-          s"$name found different file contents in the following:$newLineIndented${conflicts.mkString(newLineIndented)}"
-        )
-    }
+  val deduplicate: MergeStrategy = MergeStrategy("Deduplicate") { conflicts =>
+    val conflictContents = conflicts.map(_.stream()).map(Streamable.bytes(_))
+    val fingerprints = Set() ++ conflictContents.map(sbtassembly.Assembly.sha1Content)
+    if (fingerprints.size == 1)
+      Right(Vector(JarEntry(conflicts.head.target, () => new ByteArrayInputStream(conflictContents.head))))
+    else
+      Left(
+        s"Deduplicate found different file contents in the following:$newLineIndented${conflicts.mkString(newLineIndented)}"
+      )
   }
 
   /**
-   * Renames matching files
+   * Renames matching dependencies, except *.class files (shading should be used instead)
    */
-  val rename: MergeStrategy = new MergeStrategy {
-    val name: String = "Rename"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] =
-      Right(
-        conflicts
-          .map {
-            case Project(name, _, target, stream) => JarEntry(Paths.get(s"${target.toString}_$name"), stream)
-            case Library(_, _, target, stream) if target.endsWith(".class") =>
-              JarEntry(target, stream)
-            case Library(moduleCoord, _, target, stream) =>
-              val jarName = Option(moduleCoord.version)
-                .filter(_.nonEmpty)
-                .map(version => s"${moduleCoord.name}-$version")
-                .getOrElse(moduleCoord.name)
-              val renamed = s"${FileExtension.replaceFirstIn(target.toString, "")}_$jarName" +
-                s"${FileExtension.findFirstIn(target.toString).getOrElse("")}"
-              JarEntry(Paths.get(renamed), stream)
-          }
+  val rename: MergeStrategy = MergeStrategy("Rename") { conflicts =>
+    val classes = conflicts.filter(_.target.toString.endsWith(".class"))
+    if (classes.nonEmpty)
+      Left(
+        s"Classes should not be renamed (use shade rules instead!):$newLineIndented${classes.mkString(newLineIndented)}"
       )
-
-    override val notifyThreshold = 1
+    else
+      Right(conflicts.map {
+        case Project(name, _, target, stream) => JarEntry(Paths.get(s"${target.toString}_$name"), stream)
+        case Library(moduleCoord, _, target, stream) =>
+          val jarName = Option(moduleCoord.version)
+            .filter(_.nonEmpty)
+            .map(version => s"${moduleCoord.name}-$version")
+            .getOrElse(moduleCoord.name)
+          val renamed = s"${FileExtension.replaceFirstIn(target.toString, "")}_$jarName" +
+            s"${FileExtension.findFirstIn(target.toString).getOrElse("")}"
+          JarEntry(Paths.get(renamed), stream)
+      })
   }
 
   /**
@@ -201,10 +166,8 @@ object MergeStrategy {
    *
    * @param charset the charset to use for reading content liines
    */
-  def filterDistinctLines(charset: Charset = IO.defaultCharset): MergeStrategy = new MergeStrategy {
-    val name: String = "FilterDistinctLines"
-
-    override def merge(conflicts: Vector[Dependency]): Either[String, Vector[JarEntry]] = {
+  def filterDistinctLines(charset: Charset = IO.defaultCharset): MergeStrategy = MergeStrategy("FilterDistinctLines") {
+    conflicts =>
       val uniqueLines = conflicts
         .flatMap { conflict =>
           dependencyStreamResource(conflict) { is =>
@@ -214,7 +177,6 @@ object MergeStrategy {
         .distinct
         .mkString(newLine)
       Right(Vector(JarEntry(conflicts.head.target, () => new ByteArrayInputStream(uniqueLines.getBytes(charset)))))
-    }
   }
 
   /**
@@ -246,5 +208,61 @@ object MergeStrategy {
         case _ => MergeStrategy.deduplicate
       }
     case _ => MergeStrategy.deduplicate
+  }
+
+  private[sbtassembly] def apply(strategyName: String, notifyIfGTE: Int = 2)(
+      f: Vector[Dependency] => Either[String, Vector[JarEntry]]
+  ): MergeStrategy = new InternalMergeStrategy(strategyName, notifyIfGTE) {
+    def apply(dependencies: Vector[Dependency]): Either[String, Vector[JarEntry]] = f(dependencies)
+  }
+
+  private[sbtassembly] def merge(
+      strategy: MergeStrategy,
+      dependencies: Vector[Dependency]
+  ): Either[String, MergedEntry] =
+    strategy(dependencies).right.map(entry => MergedEntry(entry, dependencies, strategy))
+}
+
+object CustomMergeStrategy {
+
+  /**
+   * Creates a custom [[MergeStrategy]]
+   *
+   * @param strategyName a descriptive and unique (within the build) merge strategy name
+   * @param notifyIfGTE logs the summary if the number of dependencies merged is greater than or equal to this number.
+   *                    If the merge strategy involves a transformation of a single file, it is recommended to set this
+   *                    to `1` to see the results in the log. Defaults to `2`
+   * @param f the actual logic for merging the dependencies
+   * @return a [[MergeStrategy]]
+   */
+  def apply(strategyName: String, notifyIfGTE: Int = 2)(
+      f: Vector[Dependency] => Either[String, Vector[JarEntry]]
+  ): MergeStrategy = new CustomMergeStrategy(strategyName, notifyIfGTE) {
+    def apply(dependencies: Vector[Dependency]): Either[String, Vector[JarEntry]] = f(dependencies)
+  }
+
+  /**
+   * Creates a custom rename [[MergeStrategy]]. Custom renames will be processed first before all other merge strategies.
+   *
+   * Logs the summary if there is at least 1 dependency.
+   *
+   * @param f the actual logic for merging the dependencies
+   * @return a [[MergeStrategy]]
+   */
+  def rename(
+      f: Vector[Dependency] => Either[String, Vector[JarEntry]]
+  ): MergeStrategy = rename(1)(f)
+
+  /**
+   * Creates a custom rename [[MergeStrategy]]. Custom renames will be processed first before all other merge strategies.
+   *
+   * @param notifyIfGTE logs the summary if the number of dependencies merged is greater than or equal to this number.
+   * @param f the actual logic for merging the dependencies
+   * @return a [[MergeStrategy]]
+   */
+  def rename(notifyIfGTE: Int)(
+      f: Vector[Dependency] => Either[String, Vector[JarEntry]]
+  ): MergeStrategy = new CustomMergeStrategy(MergeStrategy.rename.name, notifyIfGTE) {
+    def apply(dependencies: Vector[Dependency]): Either[String, Vector[JarEntry]] = f(dependencies)
   }
 }
