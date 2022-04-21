@@ -229,10 +229,10 @@ CustomMergeStrategy.rename { conflicts =>
 The `CustomMergeStrategy` accepts a `name` and a `notifyIfGTE` that affects how the result is reported in the logs.
 Please see the scaladoc for more details.
 
-Finally, to perform the actual merge/transformation logic, a function has to be provided. The function acceptsa `Vector` of `Dependency`, where you can access the `target` of type `java.nio.file.Path` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
+Finally, to perform the actual merge/transformation logic, a function has to be provided. The function acceptsa `Vector` of `Dependency`, where you can access the `target` of type `String` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
 
 To create a merge result, a `Vector` of `JarEntry` must be returned wrapped in an `Either.Right`, or empty to discard these conflicts from the final jar.
-`JarEntry` only has two fields, a `target` of type `java.nio.file.Path` and the byte payload of type lazy `InputStream`.
+`JarEntry` only has two fields, a `target` of type `String` and the byte payload of type lazy `InputStream`.
 
 To fail the assembly, return an `Either.Left` with an error message.
 

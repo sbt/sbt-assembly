@@ -1,14 +1,13 @@
 ThisBuild / assemblyMergeStrategy := {
-  case "a" | "c" |
-      "d" => // this should be ignored in the second pass, so "e" renamed to "a" will not be renamed to "b" in the second pass
+  case "a" | "c" | "d" => // this should be ignored in the second pass, so "e" renamed to "a" will not be renamed to "b" in the second pass
     CustomMergeStrategy.rename { conflicts =>
-      Right(Vector(JarEntry("b".toPath, conflicts.head.stream)))
+      Right(Vector(JarEntry("b", conflicts.head.stream)))
     }
 
   case "b" => MergeStrategy.concat // should concatenate all the files renamed to "b" -> "a", "b", "c", and "d"
   case "e" => // this should be renamed to a in the first pass
     CustomMergeStrategy.rename { conflicts =>
-      Right(Vector(JarEntry("a".toPath, conflicts.head.stream)))
+      Right(Vector(JarEntry("a", conflicts.head.stream)))
     }
   case x =>
     val oldStrategy = (ThisBuild / assemblyMergeStrategy).value

@@ -77,7 +77,7 @@ object Assembly {
    * @param target the path to write in the jar
    * @param stream the byte payload
    */
-  case class JarEntry(target: Path, stream: LazyInputStream) {
+  case class JarEntry(target: String, stream: LazyInputStream) {
     override def toString = s"Jar entry = $target"
   }
 
@@ -105,9 +105,14 @@ object Assembly {
   sealed trait Dependency {
 
     /**
-     * @return the target path when written to the assembly jar
+     * @return the original source path, before applying assembly processing (shading, merging, etc)
      */
-    def target: Path
+    def source: String
+
+    /**
+     * @return the target path to be written to the assembly jar, after applying assembly processing (shading, merging, etc)
+     */
+    def target: String
 
     /**
      * @return a lazy payload of bytes that represents the actual content to be written
@@ -124,7 +129,7 @@ object Assembly {
      */
     def isProjectDependency: Boolean
 
-    protected def renamedTargetInfo(source: Path, target: Path): String =
+    protected def renamedTargetInfo(source: String, target: String): String =
       if (source == target) s"target = $target"
       else s"target = $target (from original source = $source)"
   }
@@ -137,7 +142,7 @@ object Assembly {
    * @param target the target path to be written to the assembly jar, after applying assembly processing (shading, merging, etc)
    * @param stream a lazy payload of bytes that represents the actual content to be written
    */
-  case class Project(name: String, source: Path, target: Path, stream: LazyInputStream) extends Dependency {
+  case class Project(name: String, source: String, target: String, stream: LazyInputStream) extends Dependency {
     override def isProjectDependency = true
     override def module: Option[ModuleCoordinate] = Option.empty
     override def toString = s"Project name = $name, ${renamedTargetInfo(source, target)}"
@@ -151,7 +156,7 @@ object Assembly {
    * @param target the target path to be written to the assembly jar, after applying assembly processing (shading, merging, etc)
    * @param stream a lazy payload of bytes that represents the actual content to be written
    */
-  case class Library(moduleCoord: ModuleCoordinate, source: Path, target: Path, stream: () => InputStream)
+  case class Library(moduleCoord: ModuleCoordinate, source: String, target: String, stream: () => InputStream)
       extends Dependency {
     override def isProjectDependency = false
     override def module: Option[ModuleCoordinate] = Option(moduleCoord)
@@ -261,11 +266,10 @@ object Assembly {
       timed(Level.Debug, "Collect project classes") {
         classByParentDir
           .flatMap { case (parentDir, file) =>
-            val originalTarget = file.relativeTo(parentDir).get.toPath
-            classShader(originalTarget.toString, () => new BufferedInputStream(new FileInputStream(file)))
+            val originalTarget = file.relativeTo(parentDir).get.toPath.toString
+            classShader(originalTarget, () => new BufferedInputStream(new FileInputStream(file)))
               .map { case (shadedName, stream) =>
-                val newTarget = Paths.get(shadedName)
-                Project(targetJarName, originalTarget, newTarget, stream)
+                Project(targetJarName, originalTarget, shadedName, stream)
               }
           }
       }
@@ -296,7 +300,7 @@ object Assembly {
           .flatMap { entry =>
             jarShader(module)(entry.getName, () => jarFile.getInputStream(entry))
               .map { case (shadedName, stream) =>
-                Library(module, Paths.get(entry.getName), Paths.get(shadedName), stream)
+                Library(module, entry.getName, shadedName, stream)
               }
           }
       }.unzip
@@ -308,8 +312,8 @@ object Assembly {
           .groupBy(_.target)
           .seq
           .map { case (target, _) =>
-            val mergeStrategy = ao.mergeStrategy(target.toString)
-            target.toString -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
+            val mergeStrategy = ao.mergeStrategy(target)
+            target -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
           }
       }
       val (jarManifest, timestamp) = createManifest(po, log)
@@ -325,7 +329,7 @@ object Assembly {
       val buildAssembly = () => {
         val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
           candidates
-            .partition(mapping => ao.mergeStrategy(mapping.target.toString).name == MergeStrategy.rename.name)
+            .partition(mapping => ao.mergeStrategy(mapping.target).name == MergeStrategy.rename.name)
         }
         val renames = timed(Level.Debug, "Process renames") {
           processRenames(mappingsToRename, ao.mergeStrategy, log)
@@ -387,8 +391,8 @@ object Assembly {
               }
             }
           }
-        log.debug("Jar hash: " + fullSha1)
         log.info("Built: " + builtAssemblyJar.toPath)
+        log.info("Jar hash: " + fullSha1)
         builtAssemblyJar
       }
       if (ao.cacheOutput) cachedAssembly(inputs, cacheDir, ao.scalaVersion, log)(buildAssembly)
@@ -521,7 +525,7 @@ object Assembly {
 
       entries
         .foreach { entry =>
-          val path = jarFs.getPath(entry.target.toString)
+          val path = jarFs.getPath(entry.target)
           if (path.getParent != null && !Files.exists(path.getParent)) Files.createDirectories(path.getParent)
           jarEntryInputStreamResource(entry) { inputStream =>
             jarEntryOutputStreamResource(path) { outputStream =>
@@ -593,7 +597,7 @@ object Assembly {
       .groupBy(_.target)
       .par
       .map { case (target, mappings) =>
-        mergeStrategies(target.toString)
+        mergeStrategies(target)
           .map(MergeStrategy.merge(_, mappings))
           .getOrElse(MergeStrategy.merge(MergeStrategy.deduplicate, mappings))
       }
@@ -630,10 +634,10 @@ object Assembly {
 
   private[sbtassembly] def reportConflictsMissedByTheMerge(mergedEntries: Vector[MergedEntry], log: Logger): Unit = {
     val parentPaths = (entry: JarEntry) => {
-      val target = entry.target
+      val target = Paths.get(entry.target)
       for {
         i <- 1 until target.getNameCount
-      } yield target.subpath(0, i)
+      } yield target.subpath(0, i).toString
     }
     val parentDirToOrigins =
       (for {
@@ -641,12 +645,8 @@ object Assembly {
         jarEntry <- mergedEntry.entries
         parentPath <- parentPaths(jarEntry)
       } yield parentPath -> mergedEntry.origins)
-        .groupBy { case (path, _) =>
-          path
-        }
-        .mapValues(_.flatMap { case (_, origins) =>
-          origins
-        })
+        .groupBy { case (path, _) => path }
+        .mapValues(_.flatMap { case (_, origins) => origins })
 
     // Signal error on parent folders that conflict with files that didn't have a merge strategy, so the user can create a MergeStrategy for them
     val filesConflictingWithDirs =

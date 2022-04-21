@@ -4,8 +4,6 @@ import com.eed3si9n.jarjarabrams
 import sbt.Keys._
 import sbt._
 
-import java.nio.file.{ Path => JPath, Paths }
-
 object AssemblyPlugin extends sbt.AutoPlugin {
   override def requires = plugins.JvmPlugin
   override def trigger = allRequirements
@@ -24,9 +22,6 @@ object AssemblyPlugin extends sbt.AutoPlugin {
           moduleId.toVector
             .map(m => jarjarabrams.ModuleCoordinate(m.organization, m.name, m.revision)): _*
         )
-    }
-    implicit class PathOps(s: String) {
-      def toPath: JPath = Paths.get(s)
     }
   }
   import autoImport.{ baseAssemblySettings => _, Assembly => _, _ }

@@ -7,7 +7,6 @@ import sbtassembly.AssemblyUtils.AppendEofInputStream
 
 import java.io.{ BufferedReader, ByteArrayInputStream, InputStreamReader, SequenceInputStream }
 import java.nio.charset.Charset
-import java.nio.file.Paths
 import java.util.Collections
 import scala.collection.JavaConverters._
 import scala.reflect.io.Streamable
@@ -137,22 +136,22 @@ object MergeStrategy {
    * Renames matching dependencies, except *.class files (shading should be used instead)
    */
   val rename: MergeStrategy = MergeStrategy("Rename") { conflicts =>
-    val classes = conflicts.filter(_.target.toString.endsWith(".class"))
+    val classes = conflicts.filter(_.target.endsWith(".class"))
     if (classes.nonEmpty)
       Left(
         s"Classes should not be renamed (use shade rules instead!):$newLineIndented${classes.mkString(newLineIndented)}"
       )
     else
       Right(conflicts.map {
-        case Project(name, _, target, stream) => JarEntry(Paths.get(s"${target.toString}_$name"), stream)
+        case Project(name, _, target, stream) => JarEntry(s"${target}_$name", stream)
         case Library(moduleCoord, _, target, stream) =>
           val jarName = Option(moduleCoord.version)
             .filter(_.nonEmpty)
             .map(version => s"${moduleCoord.name}-$version")
             .getOrElse(moduleCoord.name)
-          val renamed = s"${FileExtension.replaceFirstIn(target.toString, "")}_$jarName" +
-            s"${FileExtension.findFirstIn(target.toString).getOrElse("")}"
-          JarEntry(Paths.get(renamed), stream)
+          val renamed = s"${FileExtension.replaceFirstIn(target, "")}_$jarName" +
+            s"${FileExtension.findFirstIn(target).getOrElse("")}"
+          JarEntry(renamed, stream)
       })
   }
 
