@@ -207,23 +207,17 @@ Here is the default:
 Custom merge strategies can be plugged-in to the `assemblyMergeStrategy` function, for example:
 
 ```scala 
+...
 ThisBuild / assemblyMergeStrategy := {
   case "matching-file" => CustomMergeStrategy("my-custom-merge-strat") { conflicts =>
-    // NB! useless example
-    Right(Vector(JarEntry("my-custom-path".toPath, conflicts.head.stream)))
+    // NB! same as MergeStrategy.discard
+    Right(Vector.empty)
   }
   case x   =>
     val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)
 }
-```
-
-There is also a constructor specifically for a rename, so it gets processed first along with the built-in rename merge strategy, before other merge strategies, as mentioned in a previous section.
-
-```scala
-CustomMergeStrategy.rename { conflicts =>
-  // same as other merge strategies
-}
+...
 ```
 
 The `CustomMergeStrategy` accepts a `name` and a `notifyIfGTE` that affects how the result is reported in the logs.
@@ -231,16 +225,35 @@ Please see the scaladoc for more details.
 
 Finally, to perform the actual merge/transformation logic, a function has to be provided. The function acceptsa `Vector` of `Dependency`, where you can access the `target` of type `String` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
 
+The input `Dependency` also has two subtypes that you can pattern match on:
+  - `Project` represents an internal/project dependency
+  - `Library` represents an external/library dependency that also contains the `ModuleCoordinate` (jar org, name and version) it originated from
+
 To create a merge result, a `Vector` of `JarEntry` must be returned wrapped in an `Either.Right`, or empty to discard these conflicts from the final jar.
 `JarEntry` only has two fields, a `target` of type `String` and the byte payload of type lazy `InputStream`.
 
 To fail the assembly, return an `Either.Left` with an error message.
 
+There is also a factory specifically for renames, so it gets processed first along with the built-in rename merge strategy, before other merge strategies, as mentioned in a previous section. It accepts a function `Dependency -> String`, so the `Dependency` can be inspected and a new `target` path returned.
+
+Here is an example that appends a `String` to the original `target` path of the matched file.
+
+```scala
+...
+case "matching-file" =>
+  import sbtassembly.Assembly.{Project, Library}
+  CustomMergeStrategy.rename {
+    case dependency@(_: Project) => dependency.target + "_from_project"
+    case dependency@(_: Library) => dependency.target + "_from_library"
+  }
+...
+```
+
 For more information/examples, see the scaladoc/source code in `sbtassembly.Assembly` and `sbtassembly.MergeStrategy`.
 
 **NOTE**:
 - The `name` parameter will be distinguished from a built-in strategy. For example, the `name`=`First` will execute its custom logic along with the built-in `MergeStrategy.first`. They cannot cancel/override one another. In fact, the custom merge strategy will be logged as `First (Custom)` for clarity.
-- However, you should still choose a unique `name` for a custom merge strategy within the build. Even if all built-in and custom merge strategies are guaranteed to execute if they match a pattern and regardless of their `name`s, similarly-named custom merge strategies will have their log reports joined. YMMV, but it is discouraged to use duplicate names.
+- However, you should still choose a unique `name` for a custom merge strategy within the build. Even if all built-in and custom merge strategies are guaranteed to execute if they match a pattern regardless of their `name`s, similarly-named custom merge strategies will have their log reports joined. YMMV, but you are encouraged to **avoid duplicate names**.
 
 #### Third Party Merge Strategy Plugins
 
@@ -474,6 +487,10 @@ lazy val app = (project in file("app"))
      assembly / assemblyOption ~= { _.withCacheOutput(false) }
   )
 ```
+
+**NOTE**:
+- Unfortunately, using a custom `MergeStrategy` other than `rename` will create a function in which the plugin cannot predict
+   the outcome. This custom function must always be executed if it matches a `PathList` pattern, and thus, **will disable caching**.
 
 #### Jar assembly performance
 

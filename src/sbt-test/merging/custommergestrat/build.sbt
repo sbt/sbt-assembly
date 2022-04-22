@@ -1,7 +1,5 @@
 ThisBuild / assemblyMergeStrategy := {
-  case "sbtassembly" => CustomMergeStrategy.rename { conflicts =>
-      Right(Vector(JarEntry("some-other-target", conflicts.head.stream)))
-  }
+  case "sbtassembly" => CustomMergeStrategy.rename(_ => "some-other-target")
   case x   =>
     val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
     oldStrategy(x)

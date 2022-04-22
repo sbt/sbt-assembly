@@ -40,10 +40,10 @@ object Assembly {
   val indent: String = " " * 2
   val newLineIndented: String = newLine + indent
 
-  private[sbtassembly] val CustomLabel = " (Custom)"
-  private[sbtassembly] type Inputs = FilesInfo[ModifiedFileInfo] :+:
-    Map[String, (Boolean, String)] :+:
+  private[sbtassembly] type CacheKey = FilesInfo[ModifiedFileInfo] :+:
+    Map[String, (Boolean, String)] :+: // map of target paths that matched a merge strategy
     JManifest :+:
+    // Assembly options...
     Boolean :+:
     Option[Seq[String]] :+:
     Option[Int] :+:
@@ -72,6 +72,9 @@ object Assembly {
   private[sbtassembly] val byteArrayInputStreamResource =
     Using.resource((bytes: Array[Byte]) => new ByteArrayInputStream(bytes))
 
+  private[sbtassembly] val strategyDisplayName = (mergeStrategy: MergeStrategy) =>
+    s"${mergeStrategy.name}${if (mergeStrategy.isBuiltIn) "" else " (Custom)"}"
+
   /**
    * Represents an assembly jar entry
    * @param target the path to write in the jar
@@ -91,7 +94,7 @@ object Assembly {
   case class MergedEntry(entries: Vector[JarEntry], origins: Vector[Dependency], mergeStrategy: MergeStrategy) {
     override def toString =
       s"""
-         |Merge Strategy Used: ${mergeStrategy.name}
+         |Merge Strategy Used: ${strategyDisplayName(mergeStrategy)}
          |Resulting entries:
          |  ${if (entries.nonEmpty) entries.mkString(newLineIndented) else "None"}
          |Merge origins:
@@ -156,7 +159,7 @@ object Assembly {
    * @param target the target path to be written to the assembly jar, after applying assembly processing (shading, merging, etc)
    * @param stream a lazy payload of bytes that represents the actual content to be written
    */
-  case class Library(moduleCoord: ModuleCoordinate, source: String, target: String, stream: () => InputStream)
+  case class Library(moduleCoord: ModuleCoordinate, source: String, target: String, stream: LazyInputStream)
       extends Dependency {
     override def isProjectDependency = false
     override def module: Option[ModuleCoordinate] = Option(moduleCoord)
@@ -254,16 +257,12 @@ object Assembly {
       }
     }
 
-    val classShader = shader(ao.shadeRules.filter(_.isApplicableToCompiling))
+    val classShader = shader(ao.shadeRules.filter(_.isApplicableToCompiling), log)
     val classByParentDir =
       if (!ao.includeBin) Vector.empty[(File, File)]
-      else
-        dirs
-          .flatMap { dir =>
-            (dir.data ** (-DirectoryFilter)).get.map(dir.data -> _)
-          }
+      else dirs.flatMap(dir => (dir.data ** (-DirectoryFilter)).get.map(dir.data -> _))
     val classMappings =
-      timed(Level.Debug, "Collect project classes") {
+      timed(Level.Debug, "Collect and shade project classes") {
         classByParentDir
           .flatMap { case (parentDir, file) =>
             val originalTarget = file.relativeTo(parentDir).get.toPath.toString
@@ -282,9 +281,10 @@ object Assembly {
               rule.isApplicableTo(
                 com.eed3si9n.jarjarabrams.ModuleCoordinate(module.organization, module.name, module.version)
               )
-          )
+          ),
+        log
       )
-    val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect dependency entries") {
+    val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect and shade dependency entries") {
       filteredJars.par.map { jar =>
         val module = jar.metadata
           .get(moduleID.key)
@@ -306,42 +306,29 @@ object Assembly {
       }.unzip
     }
     try {
-      val candidates = classMappings ++ jarFileEntries.flatten
-      val mergeStrategiesByPathList = timed(Level.Debug, "Collect merge strategies") {
-        candidates
-          .groupBy(_.target)
-          .seq
-          .map { case (target, _) =>
-            val mergeStrategy = ao.mergeStrategy(target)
-            target -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
-          }
+      val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
+        (classMappings ++ jarFileEntries.flatten)
+          .partition(mapping => ao.mergeStrategy(mapping.target).name == MergeStrategy.rename.name)
       }
+      val renamedEntries = timed(Level.Debug, "Process renames") {
+        merge(mappingsToRename, path => Option(ao.mergeStrategy(path)), log)
+      }
+      // convert renames back to `Dependency`s for second-pass merge and cache-invalidation
+      val renamedDependencies = convertToDependency(renamedEntries)
       val (jarManifest, timestamp) = createManifest(po, log)
-      val (_, classes) = classByParentDir.unzip
-      val inputs = lastModified(classes.toSet ++ filteredJars.map(_.data).toSet) :+:
-        mergeStrategiesByPathList :+:
-        jarManifest :+:
-        ao.repeatableBuild :+:
-        ao.prependShellScript :+:
-        ao.maxHashLength :+:
-        ao.appendContentHash :+:
-        HNil
+      // exclude renames from the second pass
+      val secondPassMergeStrategy = (path: String) => {
+        val mergeStrategy = ao.mergeStrategy(path)
+        if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
+        else Option(mergeStrategy)
+      }
       val buildAssembly = () => {
-        val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
-          candidates
-            .partition(mapping => ao.mergeStrategy(mapping.target).name == MergeStrategy.rename.name)
-        }
-        val renames = timed(Level.Debug, "Process renames") {
-          processRenames(mappingsToRename, ao.mergeStrategy, log)
-        }
         val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
-          // exclude renames from the second pass
-          val secondPassMergeStrategy = (path: String) => {
-            val mergeStrategy = ao.mergeStrategy(path)
-            if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
-            else Option(mergeStrategy)
-          }
-          merge(renames ++ others, secondPassMergeStrategy, log)
+          merge(renamedDependencies ++ others, secondPassMergeStrategy, log)
+        }
+        timed(Level.Debug, "Report merge results") {
+          reportMergeResults(renamedEntries, log)
+          reportMergeResults(mergedEntries, log)
         }
         timed(Level.Debug, "Finding remaining conflicts that were not merged") {
           reportConflictsMissedByTheMerge(mergedEntries, log)
@@ -352,7 +339,6 @@ object Assembly {
           else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
             mergedEntries.flatMap(_.entries).par
         }
-
         val localTime = timestamp
           .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
           .getOrElse(System.currentTimeMillis())
@@ -395,8 +381,35 @@ object Assembly {
         log.info("Jar hash: " + fullSha1)
         builtAssemblyJar
       }
-      if (ao.cacheOutput) cachedAssembly(inputs, cacheDir, ao.scalaVersion, log)(buildAssembly)
-      else buildAssembly()
+      val mergeStrategiesByPathList = timed(Level.Debug, "Collect all merge strategies for cache check") {
+        // collect all
+        (renamedDependencies ++ others)
+          .groupBy(_.target)
+          .map { case (target, _) =>
+            val mergeStrategy = secondPassMergeStrategy(target).getOrElse(MergeStrategy.deduplicate)
+            target -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
+          }
+      }
+      if (
+        ao.cacheOutput &&
+        !mergeStrategiesByPathList.values
+          .exists { case (isBuiltIn, name) =>
+            // if there is at least one custom merge strategy, we cannot predict what it does so we cannot use caching
+            if (!isBuiltIn) log.warn(s"Caching disabled because of a custom merge strategy: '$name'")
+            !isBuiltIn
+          }
+      ) {
+        val (_, classes) = classByParentDir.unzip
+        val cacheKey = lastModified(classes.toSet ++ filteredJars.map(_.data).toSet) :+:
+          mergeStrategiesByPathList :+:
+          jarManifest :+:
+          ao.repeatableBuild :+:
+          ao.prependShellScript :+:
+          ao.maxHashLength :+:
+          ao.appendContentHash :+:
+          HNil
+        cachedAssembly(cacheKey, cacheDir, ao.scalaVersion, log)(buildAssembly)
+      } else buildAssembly()
     } finally
       timed(Level.Debug, "Close library jar references") {
         jarFiles.foreach(_.close())
@@ -466,16 +479,20 @@ object Assembly {
     scalaLibraries exists { x => file.getName startsWith x }
 
   private[sbtassembly] def shader(
-      shadeRules: SeqShadeRules
-  ): (String, () => InputStream) => Option[(String, () => InputStream)] =
+      shadeRules: SeqShadeRules,
+      log: Logger
+  ): (String, LazyInputStream) => Option[(String, LazyInputStream)] =
     if (shadeRules.isEmpty)
-      (name: String, inputStream: () => InputStream) => Some(name -> inputStream)
+      (name: String, inputStream: LazyInputStream) => Some(name -> inputStream)
     else {
       val bytecodeShader = Shader.bytecodeShader(shadeRules, verbose = false)
-      (name: String, inputStream: () => InputStream) => {
+      (name: String, inputStream: LazyInputStream) => {
         val is = inputStream()
-        bytecodeShader(Streamable.bytes(is), name).map { case (bytes, name) =>
-          name -> (() =>
+        val shadeResult = bytecodeShader(Streamable.bytes(is), name)
+        if (shadeResult.isEmpty) log.debug(s"Shade discarded: $name")
+        shadeResult.map { case (bytes, shadedName) =>
+          if (name != shadedName) log.debug(s"Shaded: $name -> $shadedName")
+          shadedName -> (() =>
             new ByteArrayInputStream(bytes) {
               override def close(): Unit = is.close()
             }
@@ -484,10 +501,10 @@ object Assembly {
       }
     }
 
-  private[sbtassembly] def cachedAssembly(inputs: Inputs, cacheDir: File, scalaVersion: String, log: Logger)(
+  private[sbtassembly] def cachedAssembly(inputs: CacheKey, cacheDir: File, scalaVersion: String, log: Logger)(
       buildAssembly: () => File
   ): File = {
-    val cacheBlock = inputChanged(cacheDir / s"assembly-inputs-$scalaVersion") { (inputChanged, _: Inputs) =>
+    val cacheBlock = inputChanged(cacheDir / s"assembly-cacheKey-$scalaVersion") { (inputChanged, _: CacheKey) =>
       lastOutput(cacheDir / s"assembly-outputs-$scalaVersion") { (_: Unit, previousOutput: Option[File]) =>
         val outputExists = previousOutput.exists(_.exists())
         (inputChanged, outputExists) match {
@@ -573,20 +590,17 @@ object Assembly {
     manifest -> time
   }
 
-  private[sbtassembly] def processRenames(
-      mappingsToRename: Vector[Dependency],
-      mergeStrategies: String => MergeStrategy,
-      log: Logger
-  ): Vector[Dependency] = merge(mappingsToRename, path => Option(mergeStrategies(path)), log)
-    .flatMap { mergedEntry => // convert renames back to dependency for second pass merge
-      mergedEntry.entries
-        .zip(mergedEntry.origins)
-        .map {
-          case (entry, p @ Project(name, source, _, stream)) => p.copy(name, source, entry.target, stream)
-          case (entry, l @ Library(moduleCoord, source, _, stream)) =>
-            l.copy(moduleCoord, source, entry.target, stream)
-        }
-    }
+  private[sbtassembly] def convertToDependency(renames: Vector[MergedEntry]): Vector[Dependency] =
+    renames
+      .flatMap { renamedEntry =>
+        renamedEntry.entries
+          .zip(renamedEntry.origins)
+          .map {
+            case (entry, p @ Project(name, source, _, stream)) => p.copy(name, source, entry.target, stream)
+            case (entry, l @ Library(moduleCoord, source, _, stream)) =>
+              l.copy(moduleCoord, source, entry.target, stream)
+          }
+      }
 
   private[sbtassembly] def merge(
       mappings: Vector[Dependency],
@@ -606,31 +620,29 @@ object Assembly {
       log.error(s"${failures.size} error(s) were encountered during the merge:")
       throw new RuntimeException(failures.map(_.left.get).mkString(newLine, newLine, ""))
     }
-    val mergedEntries = successfullyMerged.map(_.right.get)
-    if (mergedEntries.nonEmpty) {
-      mergedEntries
-        .groupBy(entry => entry.mergeStrategy.isBuiltIn -> entry.mergeStrategy.name)
-        .seq // we need to switch to sequential here to not mess up the detail logs
-        .foreach {
-          case ((isBuiltIn, _), entries) => // TODO figure out how to use BufferedAppender so we can keep this parallel
-            val mergeStrategy = entries.head.mergeStrategy
-            val entriesToNotify = entries.filter(entry => entry.origins.size >= mergeStrategy.notifyThreshold)
-            val totalMerged = entriesToNotify.map(_.origins.size).sum
-            if (totalMerged > 0) {
-              val custom = if (isBuiltIn) "" else CustomLabel
-              val notifyDetails =
-                if (mergeStrategy.detailLogLevel == Level.Debug) " (Run the task at debug level to see the details)"
-                else ""
-              log.log(
-                mergeStrategy.summaryLogLevel,
-                s"$totalMerged file(s) merged using strategy '${mergeStrategy.name}$custom'$notifyDetails"
-              )
-              log.log(mergeStrategy.detailLogLevel, entriesToNotify.seq.mkString(""))
-            }
-        }
-    }
-    mergedEntries.toVector
+    successfullyMerged.map(_.right.get).toVector
   }
+
+  private[sbtassembly] def reportMergeResults(mergedEntries: Vector[MergedEntry], log: Logger): Unit =
+    mergedEntries
+      .groupBy(entry => entry.mergeStrategy.isBuiltIn -> entry.mergeStrategy.name)
+      .values
+      .seq // we need to switch to sequential here to not mess up the detail logs
+      .foreach { entries => // TODO figure out how to use BufferedAppender so we can keep this parallel
+        val mergeStrategy = entries.head.mergeStrategy
+        val entriesToNotify = entries.filter(entry => entry.origins.size >= mergeStrategy.notifyThreshold)
+        val totalMerged = entriesToNotify.map(_.origins.size).sum
+        if (totalMerged > 0) {
+          val notifyDetails =
+            if (mergeStrategy.detailLogLevel == Level.Debug) " (Run the task at debug level to see the details)"
+            else ""
+          log.log(
+            mergeStrategy.summaryLogLevel,
+            s"$totalMerged file(s) merged using strategy '${strategyDisplayName(mergeStrategy)}'$notifyDetails"
+          )
+          log.log(mergeStrategy.detailLogLevel, entriesToNotify.seq.mkString(""))
+        }
+      }
 
   private[sbtassembly] def reportConflictsMissedByTheMerge(mergedEntries: Vector[MergedEntry], log: Logger): Unit = {
     val parentPaths = (entry: JarEntry) => {

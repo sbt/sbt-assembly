@@ -135,7 +135,7 @@ object MergeStrategy {
   /**
    * Renames matching dependencies, except *.class files (shading should be used instead)
    */
-  val rename: MergeStrategy = MergeStrategy("Rename") { conflicts =>
+  val rename: MergeStrategy = MergeStrategy("Rename", 1) { conflicts =>
     val classes = conflicts.filter(_.target.endsWith(".class"))
     if (classes.nonEmpty)
       Left(
@@ -245,23 +245,11 @@ object CustomMergeStrategy {
    *
    * Logs the summary if there is at least 1 dependency.
    *
-   * @param f the actual logic for merging the dependencies
+   * @param f produces the new `target` path for the given `Dependency`
    * @return a [[MergeStrategy]]
    */
-  def rename(
-      f: Vector[Dependency] => Either[String, Vector[JarEntry]]
-  ): MergeStrategy = rename(1)(f)
-
-  /**
-   * Creates a custom rename [[MergeStrategy]]. Custom renames will be processed first before all other merge strategies.
-   *
-   * @param notifyIfGTE logs the summary if the number of dependencies merged is greater than or equal to this number.
-   * @param f the actual logic for merging the dependencies
-   * @return a [[MergeStrategy]]
-   */
-  def rename(notifyIfGTE: Int)(
-      f: Vector[Dependency] => Either[String, Vector[JarEntry]]
-  ): MergeStrategy = new CustomMergeStrategy(MergeStrategy.rename.name, notifyIfGTE) {
-    def apply(dependencies: Vector[Dependency]): Either[String, Vector[JarEntry]] = f(dependencies)
-  }
+  def rename(f: Dependency => String): MergeStrategy =
+    apply(MergeStrategy.rename.name, 1) { dependencies =>
+      Right(dependencies.map(dep => JarEntry(f(dep), dep.stream)))
+    }
 }
