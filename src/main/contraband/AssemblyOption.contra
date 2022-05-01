@@ -2,8 +2,6 @@ package sbtassembly
 @target(Scala)
 
 type AssemblyOption {
-  assemblyDirectory: java.io.File @since("0.15.0")
-
   ## include compiled class files from itself or subprojects
   includeBin: Boolean! = true @since("0.15.0")
 
@@ -14,13 +12,11 @@ type AssemblyOption {
 
   excludedJars: sbt.Keys.Classpath! = raw"Nil" @since("0.15.0")
 
-  excludedFiles: sbtassembly.Assembly.SeqFileToSeqFile! = raw"sbtassembly.Assembly.defaultExcludedFiles" @since("0.15.0")
+  repeatableBuild: Boolean! = true @since("2.0.0")
 
   mergeStrategy: sbtassembly.MergeStrategy.StringToMergeStrategy! = raw"sbtassembly.MergeStrategy.defaultMergeStrategy" @since("0.15.0")
 
   cacheOutput: Boolean! = true @since("0.15.0")
-
-  cacheUnzip: Boolean! = true @since("0.15.0")
 
   appendContentHash: Boolean! = false @since("0.15.0")
 

@@ -74,13 +74,12 @@ one) then you'll end up with a fully executable JAR, ready to rock.
 Here is the list of the keys you can rewire that are scoped to current subproject's `assembly` task:
 
     assemblyJarName               test                          mainClass
-    assemblyOutputPath            assemblyOption                assembledMappings
-    assembledMappings
+    assemblyOutputPath            assemblyOption
 
 And here is the list of the keys you can rewite that are scoped globally:
 
-    assemblyAppendContentHash     assemblyCacheOutput           assemblyCacheUnzip
-    assemblyExcludedJars          assemblyMergeStrategy         assemblyShadeRules
+    assemblyAppendContentHash     assemblyCacheOutput           assemblyShadeRules
+    assemblyExcludedJars          assemblyMergeStrategy         assemblyRepeatableBuild
 
 Keys scoped to the subproject should be placed in `.settings(...)` whereas the globally scoped keys can either be placed inside of `.settings(...)` or scoped using `ThisBuild / ` to be shared across multiple subprojects.
 
@@ -140,10 +139,11 @@ of the following built-in strategies or writing a custom one:
 * `MergeStrategy.first` picks the first of the matching files in classpath order
 * `MergeStrategy.last` picks the last one
 * `MergeStrategy.singleOrError` bails out with an error message on conflict
-* `MergeStrategy.concat` simply concatenates all matching files and includes the result
-* `MergeStrategy.filterDistinctLines` also concatenates, but leaves out duplicates along the way
+* `MergeStrategy.concat` simply concatenates all matching files and includes the result. There is also an overload that accepts a line separator for formatting the result
+* `MergeStrategy.filterDistinctLines` also concatenates, but leaves out duplicates along the way. There is also an overload that accepts a `Charset` for reading the lines
 * `MergeStrategy.rename` renames the files originating from jar files
 * `MergeStrategy.discard` simply discards matching files
+* `MergeStrategy.preferProject` will choose the first project file over library files if present. Otherwise, it works like `MergeStrategy.first`
 
 The mapping of path names to merge strategies is done via the setting
 `assemblyMergeStrategy` which can be augmented as follows:
@@ -161,8 +161,19 @@ ThisBuild / assemblyMergeStrategy := {
 ```
 
 **NOTE**:
+- Actually, a merge strategy serves two purposes:
+  * To merge conflicting files
+  * To transform a single file (despite the naming), such as in the case of a `MergeStrategy.rename`. Sometimes, the transformation is a pass-through, as in the case of a `MergeStrategy.deduplicate` if there are no conflicts on a `target` path.
 - `ThisBuild / assemblyMergeStrategy` expects a function. You can't do `ThisBuild / assemblyMergeStrategy := MergeStrategy.first`!
 - Some files must be discarded or renamed otherwise to avoid breaking the zip (due to duplicate file name) or the legal license. Delegate default handling to `(ThisBuild / assemblyMergeStrategy)` as the above pattern matching example.
+- Renames are processed first, since renamed file targets might match more merge patterns afterwards. By default, LICENSEs and READMEs are renamed before applying every other merge strategy. If you need a custom logic for renaming, create a new rename merge strategy so it is processsed first, along with the custom logic. See how to create custom `MergeStrategy`s in a later section of this README.
+- There is an edge case that may occasionally fail. If a project has a file that has the same relative path as a directory to be written, an error notification will be written to the console as shown below. To resolve this, create a shade rule or a new merge strategy.
+
+  ```bash
+    [error] Files to be written at 'shadeio' have the same name as directories to be written:
+    [error]   Jar name = commons-io-2.4.jar, jar org = commons-io, entry target = shadeio/input/Tailer.class (from original source = org/apache/commons/io/input/Tailer.class)
+    [error]   Project name = foo, target = shadeio
+  ```
 
 By the way, the first case pattern in the above using `PathList(...)` is how you can pick `javax/servlet/*` from the first jar. If the default `MergeStrategy.deduplicate` is not working for you, that likely means you have multiple versions of some library pulled by your dependency graph. The real solution is to fix that dependency graph. You can work around it by `MergeStrategy.first` but don't be surprised when you see `ClassNotFoundException`.
 
@@ -192,18 +203,67 @@ Here is the default:
   }
 ```
 
-Custom `MergeStrategy`s can find out where a particular file comes
-from using the `sourceOfFileForMerge` method on `sbtassembly.AssemblyUtils`,
-which takes the temporary directory and one of the files passed into the
-strategy as parameters.
+#### Creating a custom Merge Strategy (since 2.0.0)
+Custom merge strategies can be plugged-in to the `assemblyMergeStrategy` function, for example:
+
+```scala 
+...
+ThisBuild / assemblyMergeStrategy := {
+  case "matching-file" => CustomMergeStrategy("my-custom-merge-strat") { conflicts =>
+    // NB! same as MergeStrategy.discard
+    Right(Vector.empty)
+  }
+  case x   =>
+    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+    oldStrategy(x)
+}
+...
+```
+
+The `CustomMergeStrategy` accepts a `name` and a `notifyIfGTE` that affects how the result is reported in the logs.
+Please see the scaladoc for more details.
+
+Finally, to perform the actual merge/transformation logic, a function has to be provided. The function acceptsa `Vector` of `Dependency`, where you can access the `target` of type `String` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
+
+The input `Dependency` also has two subtypes that you can pattern match on:
+  - `Project` represents an internal/project dependency
+  - `Library` represents an external/library dependency that also contains the `ModuleCoordinate` (jar org, name and version) it originated from
+
+To create a merge result, a `Vector` of `JarEntry` must be returned wrapped in an `Either.Right`, or empty to discard these conflicts from the final jar.
+`JarEntry` only has two fields, a `target` of type `String` and the byte payload of type lazy `InputStream`.
+
+To fail the assembly, return an `Either.Left` with an error message.
+
+There is also a factory specifically for renames, so it gets processed first along with the built-in rename merge strategy, before other merge strategies, as mentioned in a previous section. It accepts a function `Dependency -> String`, so the `Dependency` can be inspected and a new `target` path returned.
+
+Here is an example that appends a `String` to the original `target` path of the matched file.
+
+```scala
+...
+case "matching-file" =>
+  import sbtassembly.Assembly.{Project, Library}
+  CustomMergeStrategy.rename {
+    case dependency@(_: Project) => dependency.target + "_from_project"
+    case dependency@(_: Library) => dependency.target + "_from_library"
+  }
+...
+```
+
+For more information/examples, see the scaladoc/source code in `sbtassembly.Assembly` and `sbtassembly.MergeStrategy`.
+
+**NOTE**:
+- The `name` parameter will be distinguished from a built-in strategy. For example, the `name`=`First` will execute its custom logic along with the built-in `MergeStrategy.first`. They cannot cancel/override one another. In fact, the custom merge strategy will be logged as `First (Custom)` for clarity.
+- However, you should still choose a unique `name` for a custom merge strategy within the build. Even if all built-in and custom merge strategies are guaranteed to execute if they match a pattern regardless of their `name`s, similarly-named custom merge strategies will have their log reports joined. YMMV, but you are encouraged to **avoid duplicate names**.
 
 #### Third Party Merge Strategy Plugins
 
-Support for special-case merge strategies beyond the generic scope can be
-provided by companion plugins, below is a non-exhaustive list:
+~~Support for special-case merge strategies beyond the generic scope can be
+provided by companion plugins, below is a non-exhaustive list:~~
 
-* Log4j2 Plugin Caches (`Log4j2Plugins.dat`):
-  <https://github.com/idio/sbt-assembly-log4j2>
+~~* Log4j2 Plugin Caches (`Log4j2Plugins.dat`):~~
+~~<https://github.com/idio/sbt-assembly-log4j2>~~
+
+*The log4j plugin needs to be updated for sbt-assembly version 2.0.0
 
 ### Shading
 
@@ -412,19 +472,11 @@ lazy val app = (project in file("app"))
 
 ### Caching
 
-By default for performance reasons, the result of unzipping any dependency JAR files to disk is cached from run-to-run. This feature can be disabled by setting:
+Caching is implemented by checking all the input dependencies (class and jar files)' latest timestamp and some configuration changes from the build file.
 
-```scala
-ThisBuild / assemblyCacheUnzip := false
+In addition the über JAR is cached so its timestamp changes only when the input changes.
 
-// or
-lazy val app = (project in file("app"))
-  .settings(
-     assembly / assemblyOption ~= { _.withCacheUnzip(false) }
-  )
-```
-
-In addition the über JAR is cached so its timestamp changes only when the input changes. This feature requires checking the SHA-1 hash of all *.class files, and the hash of all dependency *.jar files. If there are a large number of class files, this could take a long time, although with hashing of jar files, rather than their contents, the speed has recently been [improved](https://github.com/sbt/sbt-assembly/issues/68). This feature can be disabled by setting:
+To disable caching:
 
 ```scala
 ThisBuild / assemblyCacheOutput := false
@@ -436,6 +488,24 @@ lazy val app = (project in file("app"))
   )
 ```
 
+**NOTE**:
+- Unfortunately, using a custom `MergeStrategy` other than `rename` will create a function in which the plugin cannot predict
+   the outcome. This custom function must always be executed if it matches a `PathList` pattern, and thus, **will disable caching**.
+
+#### Jar assembly performance
+
+By default, the setting key `assemblyRepeatableBuild` is set to `true`. This ensures that the jar entries are assembled in a specific order, resulting in a consistent hash for the jar.
+
+There is actually a performance improvement to be gained if this setting is set to `false`, since jar entries will now be assembled in parallel. The trade-off is, the jar will not have a consistent hash, and thus, caching will not work.
+
+To set the repeatable build to false:
+
+```scala 
+ThisBuild / assemblyRepeatableBuild := false
+```
+
+If a repeatable build/consistent jar is not of much importance, one may avail of this feature for improved performance, especially for large projects.
+
 ### Prepending a launch script
 
 Your can prepend a launch script to the über jar. This script will be a valid shell and batch script and will make the jar executable on Unix and Windows. If you enable the shebang the file will be detected as an executable under Linux but this will cause an error message to appear on Windows. On Windows just append a ".bat" to the files name to make it executable.
@@ -443,7 +513,7 @@ Your can prepend a launch script to the über jar. This script will be a valid s
 ```scala
 import sbtassembly.AssemblyPlugin.defaultUniversalScript
 
-ThisBuild / assemblyPrependShellScript := = Some(defaultUniversalScript(shebang = false)))
+ThisBuild / assemblyPrependShellScript := = Some(defaultUniversalScript(shebang = false))
 
 lazy val app = (project in file("app"))
   .settings(

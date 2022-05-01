@@ -1,4 +1,4 @@
-ThisBuild / version := "1.2.0-SNAPSHOT"
+ThisBuild / version := "2.0.0-SNAPSHOT"
 ThisBuild / organization := "com.eed3si9n"
 
 def scala212 = "2.12.8"
@@ -12,7 +12,6 @@ lazy val root = (project in file("."))
     name := "sbt-assembly"
     scalacOptions := Seq("-deprecation", "-unchecked", "-Dscalac.patmat.analysisBudget=1024", "-Xfuture")
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic" % "3.0.8",
       "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.8.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % Test,
     )

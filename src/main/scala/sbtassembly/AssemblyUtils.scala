@@ -1,109 +1,64 @@
 package sbtassembly
 
-import sbt._
-import java.io.{File, InputStream}
-import java.util.zip.ZipInputStream
-import scala.collection.mutable.HashSet
-import ErrorHandling.translate
-import PluginCompat._
-import Using._
+import java.io.{ ByteArrayInputStream, InputStream }
+import scala.collection.mutable
 
 private[sbtassembly] object AssemblyUtils {
-  private val PathRE = "([^/]+)/(.*)".r
 
-  /** Find the source file (and possibly the entry within a jar) whence a conflicting file came.
+  /**
+   * Checks if an [[InputStream]] ends with the given eof string and adds it if not
    *
-   * @param tempDir The temporary directory provided to a `MergeStrategy`
-   * @param f One of the files provided to a `MergeStrategy`
-   * @return The source jar or dir; the path within that dir; and true if it's from a jar.
+   * @param is input stream to check
+   * @param eof the terminating string to add at the end if needed
    */
-  def sourceOfFileForMerge(tempDir: File, f: File): (File, File, String, Boolean) = {
-    val baseURI = tempDir.getCanonicalFile.toURI
-    val otherURI = f.getCanonicalFile.toURI
-    val relative = baseURI.relativize(otherURI)
-    val PathRE(head, tail) = relative.getPath
-    val base = tempDir / head
+  class AppendEofInputStream(is: InputStream, eof: String) extends InputStream {
+    private val readBytesQ: mutable.Queue[Int] = mutable.Queue()
+    private val eofBytes = eof.map(_.toByte).toArray
+    private val maxQueueSize = eof.length
+    private val eofStream = new ByteArrayInputStream(eofBytes)
+    private var source = is
 
-    if ((tempDir / (head + ".jarName")) exists) {
-      val jarName = IO.read(tempDir / (head + ".jarName"), IO.utf8)
-      (new File(jarName), base, tail, true)
-    } else {
-      val dirName = IO.read(tempDir / (head + ".dir"), IO.utf8)
-      (new File(dirName), base, tail, false)
-    } // if-else
-  }
+    private def enqueue(i: Int): Unit = {
+      if (i > 0) readBytesQ.enqueue(i)
+      if (readBytesQ.size > maxQueueSize) readBytesQ.dequeue()
+    }
 
-  // working around https://github.com/sbt/sbt-assembly/issues/90
-  def unzip(from: File, toDirectory: File, log: Logger, filter: NameFilter = AllPassFilter, preserveLastModified: Boolean = true): Set[File] =
-    fileInputStream(from)(in => unzipStream(in, toDirectory, log, filter, preserveLastModified))
-  def unzipURL(from: URL, toDirectory: File, log: Logger, filter: NameFilter = AllPassFilter, preserveLastModified: Boolean = true): Set[File] =
-    urlInputStream(from)(in => unzipStream(in, toDirectory, log, filter, preserveLastModified))
-  def unzipStream(from: InputStream, toDirectory: File, log: Logger, filter: NameFilter = AllPassFilter, preserveLastModified: Boolean = true): Set[File] =
-  {
-    IO.createDirectory(toDirectory)
-    zipInputStream(from) { zipInput => extract(zipInput, toDirectory, log, filter, preserveLastModified) }
-  }
-  private def extract(from: ZipInputStream, toDirectory: File, log: Logger, filter: NameFilter, preserveLastModified: Boolean) =
-  {
-    val set = new HashSet[File]
-    def next(): Unit = {
-      val entry = from.getNextEntry
-      if(entry == null)
-        ()
-      else
-      {
-        val name = entry.getName
-        if(filter.accept(name))
-        {
-          val target = new File(toDirectory, name)
-          //log.debug("Extracting zip entry '" + name + "' to '" + target + "'")
+    override def read(): Int =
+      readWithEnqueue(() => source.read(), enqueue)
 
-          try {
-            if (entry.isDirectory)
-              IO.createDirectory(target)
-            else
-            {
-              set += target
-              translate("Error extracting zip entry '" + name + "' to '" + target + "': ") {
-                fileOutputStream(false)(target) { out => IO.transfer(from, out) }
-              }
-            }
+    override def read(b: Array[Byte], off: Int, len: Int): Int =
+      readWithEnqueue(() => source.read(b, off, len), _ => b.map(_.toInt).foreach(enqueue))
 
-            if (preserveLastModified) {
-              val t: Long = entry.getTime
-              val EPOCH_1980_01_01 = 315532800000L
-              val EPOCH_2010_01_01 = 1262304000000L
-              if (t > EPOCH_1980_01_01) target.setLastModified(t)
-              else target.setLastModified(EPOCH_2010_01_01)
-            }
-          } catch {
-            case e: Throwable => log.warn(e.getMessage)
-          }
+    override def close(): Unit = {
+      is.close()
+      eofStream.close()
+    }
+
+    private def readWithEnqueue(read: () => Int, enqueue: Int => Unit): Int = {
+      val byte = read()
+      if (byte != -1) {
+        enqueue(byte)
+        byte
+      } else {
+        val lastBytesStored = readBytesQ.dequeueAll(_ => true)
+        if (lastBytesStored.toArray.map(_.toByte) sameElements eofBytes)
+          -1
+        else {
+          source = eofStream
+          read()
         }
-        else
-        {
-          //log.debug("Ignoring zip entry '" + name + "'")
-        }
-        from.closeEntry()
-        next()
       }
     }
-    next()
-    Set() ++ set
   }
 
-  def getMappings(rootDir : File, excluded: Set[File]): Vector[(File, String)] =
-    if(!rootDir.exists) Vector()
-    else {
-      val sysFileSep = System.getProperty("file.separator")
-      def loop(dir: File, prefix: String, acc: Seq[(File, String)]): Seq[(File, String)] = {
-        val children = (dir * new SimpleFileFilter(f => !excluded(f))).get
-        children.flatMap { f =>
-          val rel = (if(prefix.isEmpty) "" else prefix + sysFileSep) + f.getName
-          val pairAcc = (f -> rel) +: acc
-          if(f.isDirectory) loop(f, rel, pairAcc) else pairAcc
-        }
-      }
-      loop(rootDir, "", Nil).toVector
-    }
+  object AppendEofInputStream {
+
+    /**
+     * Creates an [[AppendEofInputStream]]
+     * @param is input stream to check
+     * @param eof the terminating string to add at the end if needed
+     * @return an [[AppendEofInputStream]] instance
+     */
+    def apply(is: InputStream, eof: String = System.lineSeparator()) = new AppendEofInputStream(is, eof)
+  }
 }

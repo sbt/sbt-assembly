@@ -1,0 +1,4 @@
+> assembly
+
+# check if the 'sbtassembly' file was renamed to 'some-other-target' and has correct contents
+> check
