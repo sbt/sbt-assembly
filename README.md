@@ -513,7 +513,7 @@ Your can prepend a launch script to the über jar. This script will be a valid s
 ```scala
 import sbtassembly.AssemblyPlugin.defaultUniversalScript
 
-ThisBuild / assemblyPrependShellScript := = Some(defaultUniversalScript(shebang = false))
+ThisBuild / assemblyPrependShellScript := Some(defaultUniversalScript(shebang = false))
 
 lazy val app = (project in file("app"))
   .settings(
