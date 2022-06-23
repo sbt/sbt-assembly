@@ -28,22 +28,12 @@ jobs:
         java-version: "adopt@1.${{ matrix.java }}"
     - uses: coursier/cache-action@v5
     - name: Build and test
-      if: "!startsWith(matrix.os, 'windows')"
+      shell: bash
       run: |
-        sbt -v +publishLocal ++${{matrix.scala}}! test scripted
+        sbt -v +publishLocal $(if [[ "${{matrix.scala}}" != "" ]] ; then echo "++${{matrix.scala}}!" ; fi) test scripted
         rm -rf "$HOME/.ivy2/local" || true
         rm -rf "$HOME/.ivy2/cache/com.eed3si9n" || true
         find $HOME/Library/Caches/Coursier/v1        -name "ivydata-*.properties" -delete || true
         find $HOME/.ivy2/cache                       -name "ivydata-*.properties" -delete || true
         find $HOME/.cache/coursier/v1                -name "ivydata-*.properties" -delete || true
         find $HOME/.sbt                              -name "*.lock"               -delete || true
-    - name: Build and test
-      if: startsWith(matrix.os, 'windows')
-      run: |
-        sbt -v +publishLocal ++${{matrix.scala}}! test scripted
-        if (Test-Path "~/.ivy2/local")                { Remove-Item -r "~/.ivy2/local" -Force }
-        if (Test-Path "~/.ivy2/cache/com.eed3si9n")   { Remove-Item -r "~/.ivy2/cache/com.eed3si9n" -Force }
-        if (Test-Path "~/Library/Caches/Coursier/v1") { Get-ChildItem -Path ~/Library/Caches/Coursier/v1/**/ivydata-*.properties -Recurse -Force | Remove-Item -Verbose }
-        if (Test-Path "~/.ivy2/cache")                { Get-ChildItem -Path ~/.ivy2/cache/**/ivydata-*.properties                -Recurse -Force | Remove-Item -Verbose }
-        if (Test-Path "~/.cache/coursier/v1")         { Get-ChildItem -Path ~/.cache/coursier/v1/**/ivydata-*.properties         -Recurse -Force | Remove-Item -Verbose }
-        if (Test-Path "~/.sbt")                       { Get-ChildItem -Path ~/.sbt/**/*.lock                                     -Recurse -Force | Remove-Item -Verbose }
