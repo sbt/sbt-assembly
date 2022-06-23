@@ -29,7 +29,7 @@ jobs:
     - uses: coursier/cache-action@v5
     - name: Build and test
       run: |
-        sbt -v +publishLocal $(if [[ "${{matrix.scala}}" != "" ]] ; then echo "++${{matrix.scala}}!" ; fi) test scripted
+        sbt -v +publishLocal ++${{matrix.scala}}! test scripted
         rm -rf "$HOME/.ivy2/local" || true
         rm -rf "$HOME/.ivy2/cache/com.eed3si9n" || true
         find $HOME/Library/Caches/Coursier/v1        -name "ivydata-*.properties" -delete || true
