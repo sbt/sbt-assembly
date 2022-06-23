@@ -41,9 +41,9 @@ jobs:
       if: startsWith(matrix.os, 'windows')
       run: |
         sbt -v +publishLocal ++${{matrix.scala}}! test scripted
-        if (Test-Path "~/.ivy2/local") { Remove-Item -r "~/.ivy2/local" -Force }
-        if (Test-Path "~/.ivy2/cache/com.eed3si9n") { Remove-Item -r "~/.ivy2/cache/com.eed3si9n" -Force }
-        Get-ChildItem -Path ~/Library/Caches/Coursier/v1/**/ivydata-*.properties -Recurse -Force | Remove-Item -Verbose
-        Get-ChildItem -Path ~/.ivy2/cache/**/ivydata-*.properties -Recurse -Force | Remove-Item -Verbose
-        Get-ChildItem -Path ~/.cache/coursier/v1 /**/ivydata-*.properties -Recurse -Force | Remove-Item -Verbose
-        Get-ChildItem -Path ~/.sbt/**/*.lock -Recurse -Force | Remove-Item -Verbose
+        if (Test-Path "~/.ivy2/local")                { Remove-Item -r "~/.ivy2/local" -Force }
+        if (Test-Path "~/.ivy2/cache/com.eed3si9n")   { Remove-Item -r "~/.ivy2/cache/com.eed3si9n" -Force }
+        if (Test-Path "~/Library/Caches/Coursier/v1") { Get-ChildItem -Path ~/Library/Caches/Coursier/v1/**/ivydata-*.properties -Recurse -Force | Remove-Item -Verbose }
+        if (Test-Path "~/.ivy2/cache")                { Get-ChildItem -Path ~/.ivy2/cache/**/ivydata-*.properties                -Recurse -Force | Remove-Item -Verbose }
+        if (Test-Path "~/.cache/coursier/v1")         { Get-ChildItem -Path ~/.cache/coursier/v1/**/ivydata-*.properties         -Recurse -Force | Remove-Item -Verbose }
+        if (Test-Path "~/.sbt")                       { Get-ChildItem -Path ~/.sbt/**/*.lock                                     -Recurse -Force | Remove-Item -Verbose }
