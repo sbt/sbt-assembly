@@ -6,10 +6,12 @@ on:
   - cron: '0 21 * * 0'
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         include:
           - java: 8
             scala: 2.12.8
@@ -26,6 +28,7 @@ jobs:
         java-version: "adopt@1.${{ matrix.java }}"
     - uses: coursier/cache-action@v5
     - name: Build and test
+      shell: bash
       run: |
         sbt -v +publishLocal $(if [[ "${{matrix.scala}}" != "" ]] ; then echo "++${{matrix.scala}}!" ; fi) test scripted
         rm -rf "$HOME/.ivy2/local" || true
