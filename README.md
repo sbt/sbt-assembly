@@ -36,6 +36,26 @@ Usage
 Since sbt-assembly is now an auto plugin that's triggered for all projects with `JvmPlugin`, it shouldn't require extra setup to include `assembly` task into your project.
 See [migration guide](Migration.md) for details on how to upgrade from older sbt-assembly.
 
+
+### Main class 
+
+Your Main class should like this
+
+```scala
+object main:
+  def main(args: Array[String]): Unit  =
+    println("hello world")
+```
+if you not define your main method like `def main(args: Array[String]): Unit =`, you will got error message:
+
+```
+#java -jar target/scala-3.1.3/myapp-assembly-0.1.0-SNAPSHOT.jar
+Error: Main method not found in class com.example.main, please define the main method as:
+   public static void main(String[] args)
+or a JavaFX application class must extend javafx.application.Application
+```
+So, please define the right main method.
+
 ### Applying the plugin to multi-project build.sbt
 
 For example, here's a multi-project `build.sbt`:
