@@ -59,6 +59,6 @@ private[sbtassembly] object AssemblyUtils {
      * @param eof the terminating string to add at the end if needed
      * @return an [[AppendEofInputStream]] instance
      */
-    def apply(is: InputStream, eof: String = System.lineSeparator()) = new AppendEofInputStream(is, eof)
+    def apply(is: InputStream, eof: String = "\n") = new AppendEofInputStream(is, eof)
   }
 }

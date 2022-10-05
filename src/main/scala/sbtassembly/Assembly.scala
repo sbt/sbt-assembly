@@ -36,7 +36,7 @@ object Assembly {
   type LazyInputStream = () => InputStream
 
   val defaultShadeRules: Seq[com.eed3si9n.jarjarabrams.ShadeRule] = Nil
-  val newLine: String = System.lineSeparator()
+  val newLine: String = "\n"
   val indent: String = " " * 2
   val newLineIndented: String = newLine + indent
 
@@ -530,7 +530,7 @@ object Assembly {
       manifest: JManifest,
       localTime: Long
   ): Unit = {
-    jarFileSystemResource(URI.create(s"jar:file:${output.toPath.toString}")) { jarFs =>
+    jarFileSystemResource(URI.create(s"jar:${output.toURI}")) { jarFs =>
       val manifestPath = jarFs.getPath("META-INF/MANIFEST.MF")
       Files.createDirectories(manifestPath.getParent)
       val manifestOut = Files.newOutputStream(
@@ -717,11 +717,12 @@ object Assembly {
 }
 
 object PathList {
-  private val sysFileSep = System.getProperty("file.separator")
+  private val sysFileSep = "/"
 
   def unapplySeq(path: String): Option[Seq[String]] = {
-    val split = path.split(if (sysFileSep.equals("""\""")) """\\""" else sysFileSep)
-    if (split.isEmpty) None
-    else Some(split.toList)
+    val sanitizedPath = if (path.contains('\\')) path.replace('\\', '/') else path
+    val split = sanitizedPath.split(sysFileSep)
+    if (split.isEmpty) Option.empty
+    else Option(split.toList)
   }
 }
