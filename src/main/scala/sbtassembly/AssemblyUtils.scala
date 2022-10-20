@@ -44,9 +44,10 @@ private[sbtassembly] object AssemblyUtils {
         if (lastBytesStored.toArray.map(_.toByte) sameElements eofBytes)
           -1
         else {
-          eofStream.reset()
           source = eofStream
-          read()
+          val eofByte = read()
+          enqueue(eofByte)
+          eofByte
         }
       }
     }
