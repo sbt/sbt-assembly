@@ -36,7 +36,8 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyAppendContentHash := false,
     assemblyPrependShellScript := None,
     assemblyCacheOutput := true,
-    assemblyRepeatableBuild := true
+    assemblyRepeatableBuild := true,
+    concurrentRestrictions += Tags.limit(Assembly.assemblyTag, 1)
   )
 
   override lazy val projectSettings: Seq[Def.Setting[_]] = assemblySettings

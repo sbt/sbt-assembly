@@ -12,6 +12,7 @@ import sbt.util.FileInfo.lastModified
 import sbt.util.Tracked.{ inputChanged, lastOutput }
 import sbt.util.{ FilesInfo, Level, ModifiedFileInfo }
 import sbt.{ File, Logger, _ }
+import sbt.Tags.Tag
 import CacheImplicits._
 import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, _ }
 import sbtassembly.PluginCompat.ClasspathUtilities
@@ -39,6 +40,8 @@ object Assembly {
   val newLine: String = "\n"
   val indent: String = " " * 2
   val newLineIndented: String = newLine + indent
+
+  val assemblyTag = Tag("assembly")
 
   private[sbtassembly] type CacheKey = FilesInfo[ModifiedFileInfo] :+:
     Map[String, (Boolean, String)] :+: // map of target paths that matched a merge strategy
@@ -192,7 +195,7 @@ object Assembly {
       s.cacheDirectory,
       s.log
     )
-  }
+  }.tag(assemblyTag)
 
   /**
    * Builds an assembly jar
