@@ -27,7 +27,10 @@ private[sbtassembly] object AssemblyUtils {
       readWithEnqueue(() => source.read(), enqueue)
 
     override def read(b: Array[Byte], off: Int, len: Int): Int =
-      readWithEnqueue(() => source.read(b, off, len), _ => b.map(_.toInt).foreach(enqueue))
+      readWithEnqueue(() => source.read(b, off, len), {
+        case -1 => ()
+        case bytesRead => (off until off + bytesRead).foreach(i => enqueue(b(i).toInt))
+      })
 
     override def close(): Unit = {
       is.close()
