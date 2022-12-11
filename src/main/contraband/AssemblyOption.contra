@@ -26,6 +26,8 @@ type AssemblyOption {
 
   shadeRules: sbtassembly.Assembly.SeqShadeRules! = raw"sbtassembly.Assembly.defaultShadeRules" @since("0.15.0")
 
+  keepRules: sbtassembly.Assembly.SeqString! = raw"sbtassembly.Assembly.defaultKeepRules" @since("2.0.1")
+
   scalaVersion: String! = "" @since("0.15.0")
 
   level: sbt.Level.Value! = raw"sbt.Level.Info" @since("0.15.0")
