@@ -68,7 +68,7 @@ object Assembly {
   /* Closeable resources */
   private[sbtassembly] val jarFileSystemResource =
     Using.resource((uri: URI) => FileSystems.newFileSystem(uri, Map("create" -> "true").asJava))
-  private[sbtassembly] val jarEntryInputStreamResource = Using.resource((entry: JarEntry) => entry.stream())
+  private[sbtassembly] val jarEntryInputStreamResource = Using.resource((entry: Entry) => entry.stream())
   private[sbtassembly] val jarEntryOutputStreamResource = Using.resource((path: Path) =>
     Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
   )
@@ -78,13 +78,22 @@ object Assembly {
   private[sbtassembly] val strategyDisplayName = (mergeStrategy: MergeStrategy) =>
     s"${mergeStrategy.name}${if (mergeStrategy.isBuiltIn) "" else " (Custom)"}"
 
+  trait Entry {
+    val target: String
+    val stream: LazyInputStream
+  }
+
   /**
    * Represents an assembly jar entry
    * @param target the path to write in the jar
    * @param stream the byte payload
    */
-  case class JarEntry(target: String, stream: LazyInputStream) {
+  case class JarEntry(target: String, stream: LazyInputStream) extends Entry {
     override def toString = s"Jar entry = $target"
+  }
+
+  case class FileEntry(target: String, stream: LazyInputStream) extends Entry {
+    override def toString = s"File entry = $target"
   }
 
   /**
@@ -346,9 +355,24 @@ object Assembly {
           .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
           .getOrElse(System.currentTimeMillis())
 
+        val jarWithFileEntriesToWrite = timed(Level.Debug, "Combine manual files with merged files") {
+          if (ao.includedFiles.isEmpty)
+            jarEntriesToWrite.map(jarEntry => jarEntry: Entry)
+          else {
+            val asEntry = ao.includedFiles.map { case (file, target) =>
+              FileEntry(target.toString, () => new FileInputStream(file)): Entry
+            }.toIndexedSeq
+
+            if (ao.repeatableBuild)
+              asEntry.sortBy(_.target)
+            else
+              asEntry.par
+          }
+        }
+
         timed(Level.Debug, "Create jar") {
           IO.delete(output)
-          createJar(output, jarEntriesToWrite, jarManifest, localTime)
+          createJar(output, jarWithFileEntriesToWrite, jarManifest, localTime)
         }
         val fullSha1 = timed(Level.Debug, "Hash newly-built Jar") {
           hash(output)
@@ -529,7 +553,7 @@ object Assembly {
 
   private[sbtassembly] def createJar(
       output: File,
-      entries: GenSeq[JarEntry],
+      entries: GenSeq[Entry],
       manifest: JManifest,
       localTime: Long
   ): Unit = {

@@ -30,6 +30,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyMergeStrategy := MergeStrategy.defaultMergeStrategy,
     assemblyShadeRules := Nil,
     assemblyExcludedJars := Nil,
+    assemblyIncludeFiles := Nil,
     assembleArtifact in packageBin := true,
     assembleArtifact in assemblyPackageScala := true,
     assembleArtifact in assemblyPackageDependency := true,
@@ -121,6 +122,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withScalaVersion(scalaVersion.value)
         .withLevel(logLevel.?.value.getOrElse(Level.Info))
         .withRepeatableBuild(assemblyRepeatableBuild.value)
+        .withIncludedFiles(assemblyIncludeFiles.value)
     }
   )
 

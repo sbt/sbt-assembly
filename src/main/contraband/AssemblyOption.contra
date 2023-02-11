@@ -29,4 +29,6 @@ type AssemblyOption {
   scalaVersion: String! = "" @since("0.15.0")
 
   level: sbt.Level.Value! = raw"sbt.Level.Info" @since("0.15.0")
+
+  includedFiles: raw"List[(sbt.File, java.nio.file.Path)]"! = raw"Nil" @since("2.1.0")
 }
