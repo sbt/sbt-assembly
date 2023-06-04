@@ -1,5 +1,5 @@
-lazy val scala212 = "2.12.15"
-lazy val scala213 = "2.13.7"
+lazy val scala212 = "2.12.18"
+lazy val scala213 = "2.13.11"
 
 scalaVersion := scala212
 crossScalaVersions := List(scala212, scala213)
