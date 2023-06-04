@@ -1,5 +1,5 @@
 ThisBuild / version := "0.1"
-ThisBuild / scalaVersion := "2.12.8"
+ThisBuild / scalaVersion := "2.12.18"
 ThisBuild / assemblyAppendContentHash := true
 
 lazy val root = (project in file("."))

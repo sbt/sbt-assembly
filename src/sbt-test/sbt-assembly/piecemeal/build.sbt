@@ -1,5 +1,5 @@
 ThisBuild / version := "0.1"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.18"
 
 ThisBuild / assemblyPackageScala / assembleArtifact := false
 ThisBuild / assemblyPackageDependency / assembleArtifact := false
@@ -24,7 +24,7 @@ lazy val root = (project in file("."))
     },
     TaskKey[Unit]("check2") := {
       val process = sys.process.Process("java", Seq("-cp",
-        (crossTarget.value / "scala-library-2.12.15-assembly.jar").toString +
+        (crossTarget.value / "scala-library-2.12.18-assembly.jar").toString +
         (if (scala.util.Properties.isWin) ";" else ":") +
         (crossTarget.value / "foo-assembly-0.1.jar").toString,
         "Main"))

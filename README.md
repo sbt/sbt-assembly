@@ -43,7 +43,7 @@ For example, here's a multi-project `build.sbt`:
 ```scala
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.example"
-ThisBuild / scalaVersion := "2.13.7"
+ThisBuild / scalaVersion := "2.13.11"
 
 lazy val app = (project in file("app"))
   .settings(

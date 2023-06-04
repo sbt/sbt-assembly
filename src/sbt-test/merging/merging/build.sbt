@@ -1,5 +1,5 @@
 ThisBuild / version := "0.1"
-ThisBuild / scalaVersion := "2.12.15"
+ThisBuild / scalaVersion := "2.12.18"
 ThisBuild / assemblyMergeStrategy := {
   case "a" => MergeStrategy.concat
   case "b" => MergeStrategy.first
