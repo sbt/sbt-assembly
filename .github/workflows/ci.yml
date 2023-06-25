@@ -22,15 +22,18 @@ jobs:
       JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
       JVM_OPTS:  -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
     steps:
-    - uses: actions/checkout@v2
-    - uses: olafurpg/setup-scala@v10
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v3
       with:
-        java-version: "adopt@1.${{ matrix.java }}"
-    - uses: coursier/cache-action@v5
+        distribution: "adopt"
+        java-version: "${{ matrix.java }}"
+    - uses: coursier/cache-action@v6
     - name: Build and test
       shell: bash
       run: |
-        sbt -v +publishLocal $(if [[ "${{matrix.scala}}" != "" ]] ; then echo "++${{matrix.scala}}!" ; fi) test scripted
+        curl -sL https://raw.githubusercontent.com/sbt/sbt/85b18fa54832cd3d025973e86748fa834f0363f8/sbt -o sbt
+        chmod +x ./sbt
+        ./sbt -v +publishLocal $(if [[ "${{matrix.scala}}" != "" ]] ; then echo "++${{matrix.scala}}!" ; fi) test scripted
         rm -rf "$HOME/.ivy2/local" || true
         rm -rf "$HOME/.ivy2/cache/com.eed3si9n" || true
         find $HOME/Library/Caches/Coursier/v1        -name "ivydata-*.properties" -delete || true
