@@ -1,6 +1,5 @@
 package sbtassembly
 
-import com.eed3si9n.jarjarabrams
 import sbt.Keys._
 import sbt._
 
@@ -8,7 +7,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   override def requires = plugins.JvmPlugin
   override def trigger = allRequirements
 
-  object autoImport extends AssemblyKeys {
+  object autoImport extends AssemblyKeys with AssemblyShadeRule.implicits {
     val Assembly = sbtassembly.Assembly
     val MergeStrategy = sbtassembly.MergeStrategy
     val JarEntry = sbtassembly.Assembly.JarEntry
@@ -16,13 +15,6 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     val PathList = sbtassembly.PathList
     val baseAssemblySettings = AssemblyPlugin.baseAssemblySettings
     val ShadeRule = com.eed3si9n.jarjarabrams.ShadeRule
-    implicit class RichShadePattern(pattern: jarjarabrams.ShadePattern) {
-      def inLibrary(moduleId: ModuleID*): jarjarabrams.ShadeRule =
-        pattern.inModuleCoordinates(
-          moduleId.toVector
-            .map(m => jarjarabrams.ModuleCoordinate(m.organization, m.name, m.revision)): _*
-        )
-    }
   }
   import autoImport.{ baseAssemblySettings => _, Assembly => _, _ }
 
@@ -106,7 +98,6 @@ object AssemblyPlugin extends sbt.AutoPlugin {
 
   def assemblyOptionSettings: Seq[Setting[_]] = Seq(
     assemblyOption := {
-      val s = streams.value
       AssemblyOption()
         .withIncludeBin((assembleArtifact in packageBin).value)
         .withIncludeScala((assembleArtifact in assemblyPackageScala).value)
@@ -117,7 +108,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withAppendContentHash(assemblyAppendContentHash.value)
         .withPrependShellScript(assemblyPrependShellScript.value)
         .withMaxHashLength(assemblyMaxHashLength.?.value)
-        .withShadeRules(assemblyShadeRules.value)
+        .withShadeRules(assemblyShadeRules.value.map(_.toShadeRule(scalaVersion.value, scalaBinaryVersion.value)))
         .withScalaVersion(scalaVersion.value)
         .withLevel(logLevel.?.value.getOrElse(Level.Info))
         .withRepeatableBuild(assemblyRepeatableBuild.value)
