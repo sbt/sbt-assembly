@@ -257,13 +257,10 @@ For more information/examples, see the scaladoc/source code in `sbtassembly.Asse
 
 #### Third Party Merge Strategy Plugins
 
-~~Support for special-case merge strategies beyond the generic scope can be
-provided by companion plugins, below is a non-exhaustive list:~~
+Support for special-case merge strategies beyond the generic scope can be
+provided by companion plugins, below is a non-exhaustive list:
 
-~~* Log4j2 Plugin Caches (`Log4j2Plugins.dat`):~~
-~~<https://github.com/idio/sbt-assembly-log4j2>~~
-
-*The log4j plugin needs to be updated for sbt-assembly version 2.0.0
+* [Log4j2 Plugin Caches](https://github.com/mpollmeier/sbt-assembly-log4j2): merge `Log4j2Plugins.dat` binaries
 
 ### Shading
 
