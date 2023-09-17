@@ -1,4 +1,9 @@
-ThisBuild / version := "2.0.1-SNAPSHOT"
+ThisBuild / version := {
+  val old = (ThisBuild / version).value
+  if ((ThisBuild / isSnapshot).value) "2.1.2-SNAPSHOT"
+  else old
+}
+
 ThisBuild / organization := "com.eed3si9n"
 
 def scala212 = "2.12.8"
