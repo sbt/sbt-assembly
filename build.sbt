@@ -1,4 +1,9 @@
-ThisBuild / version := "2.0.1-SNAPSHOT"
+ThisBuild / version := {
+  val old = (ThisBuild / version).value
+  if ((ThisBuild / isSnapshot).value) "2.1.2-SNAPSHOT"
+  else old
+}
+
 ThisBuild / organization := "com.eed3si9n"
 
 def scala212 = "2.12.8"
@@ -12,7 +17,7 @@ lazy val root = (project in file("."))
     name := "sbt-assembly"
     scalacOptions := Seq("-deprecation", "-unchecked", "-Dscalac.patmat.analysisBudget=1024", "-Xfuture")
     libraryDependencies ++= Seq(
-      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.8.2",
+      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.8.3",
       "org.scalatest" %% "scalatest" % "3.1.1" % Test,
     )
     (pluginCrossBuild / sbtVersion) := {
