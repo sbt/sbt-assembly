@@ -488,7 +488,11 @@ object Assembly {
     if (shadeRules.isEmpty)
       (name: String, inputStream: LazyInputStream) => Some(name -> inputStream)
     else {
-      val bytecodeShader = Shader.bytecodeShader(shadeRules, verbose = false)
+      val bytecodeShader = Shader.bytecodeShader(
+        shadeRules,
+        verbose = false,
+        skipManifest = false,
+      )
       (name: String, inputStream: LazyInputStream) => {
         val is = inputStream()
         val shadeResult = bytecodeShader(Streamable.bytes(is), name)

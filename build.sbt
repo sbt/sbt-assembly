@@ -17,7 +17,7 @@ lazy val root = (project in file("."))
     name := "sbt-assembly"
     scalacOptions := Seq("-deprecation", "-unchecked", "-Dscalac.patmat.analysisBudget=1024", "-Xfuture")
     libraryDependencies ++= Seq(
-      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.9.0",
+      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.13.0",
     )
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {
