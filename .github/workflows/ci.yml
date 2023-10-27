@@ -16,10 +16,10 @@ jobs:
             java: 8
             distribution: temurin
           - os: ubuntu-latest
-            java: 11
+            java: 21
             distribution: temurin
           - os: ubuntu-latest
-            java: 21
+            java: 22-ea
             distribution: temurin
           - os: windows-latest
             java: 11
@@ -35,26 +35,6 @@ jobs:
       with:
         distribution: "${{ matrix.distribution }}"
         java-version: "${{ matrix.java }}"
-        cache: sbt
-    - name: Build and test
-      shell: bash
-      run: |
-        sbt -v clean scripted
-
-  ea-test:
-    runs-on: ubuntu-latest
-    env:
-      # define Java options for both official sbt and sbt-extras
-      JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
-      JVM_OPTS:  -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
-    steps:
-    - uses: actions/checkout@v4
-    - name: Setup JDK
-      uses: actions/setup-java@v3
-      with:
-        java-version: 22-ea
-        distribution: temurin
-        jdkFile: https://download.java.net/java/early_access/jdk22/20/GPL/openjdk-22-ea+20_linux-x64_bin.tar.gz
         cache: sbt
     - name: Build and test
       shell: bash
