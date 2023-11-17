@@ -1,9 +1,16 @@
+import sbtassembly.AssemblyPlugin.autoImport._
+
+
 lazy val root = (project in file(".")).
   settings(
     version := "0.1.0",
     scalaVersion := "2.12.18",
     libraryDependencies ++= Seq(
-      "org.apache.cassandra" % "cassandra-all" % "4.0.0"
+      "org.apache.calcite" % "calcite-core" % "1.36.0"
+    ),
+    assembly / assemblyShadeRules := Seq(
+      // shade guava for calcite
+      ShadeRule.rename("com.google.guava.**" -> s"new_guava.com.google.guava.@1").inAll,
     ),
     assembly / mainClass := Some("foo.Hello"),
     assembly / assemblyJarName := "foo.jar",
