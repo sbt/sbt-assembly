@@ -287,136 +287,134 @@ object Assembly {
           ),
         log
       )
-    val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect and shade dependency entries") {
+    val jarFileEntries = timed(Level.Debug, "Collect and shade dependency entries") {
       filteredJars.par.map { jar =>
         val module = jar.metadata
           .get(moduleID.key)
           .map(m => ModuleCoordinate(m.organization, m.name, m.revision))
           .getOrElse(ModuleCoordinate("", jar.data.name.replaceAll(".jar", ""), ""))
         val jarFile = new JarFile(jar.data)
-        jarFile -> jarFile
+        val jarFileEntriesRes = jarFile
           .entries()
           .asScala
           .filterNot(_.isDirectory)
           .toVector
           .par
           .flatMap { entry =>
-            jarShader(module)(entry.getName, () => jarFile.getInputStream(entry))
+            jarShader(module)(entry.getName, () => new ByteArrayInputStream(jarFile.getInputStream(entry).readAllBytes()))
               .map { case (shadedName, stream) =>
                 Library(module, entry.getName, shadedName, stream)
               }
           }
-      }.unzip
+          jarFile.close()
+          jarFileEntriesRes
+      }
     }
-    try {
-      val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
-        (classMappings ++ jarFileEntries.flatten)
-          .partition(mapping => ao.mergeStrategy(mapping.target).name == MergeStrategy.rename.name)
-      }
-      val renamedEntries = timed(Level.Debug, "Process renames") {
-        merge(mappingsToRename, path => Option(ao.mergeStrategy(path)), log)
-      }
-      // convert renames back to `Dependency`s for second-pass merge and cache-invalidation
-      val renamedDependencies = convertToDependency(renamedEntries)
-      val (jarManifest, timestamp) = createManifest(po, log)
-      // exclude renames from the second pass
-      val secondPassMergeStrategy = (path: String) => {
-        val mergeStrategy = ao.mergeStrategy(path)
-        if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
-        else Option(mergeStrategy)
-      }
-      val buildAssembly = () => {
-        val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
-          merge(renamedDependencies ++ others, secondPassMergeStrategy, log)
-        }
-        timed(Level.Debug, "Report merge results") {
-          reportMergeResults(renamedEntries, log)
-          reportMergeResults(mergedEntries, log)
-        }
-        timed(Level.Debug, "Finding remaining conflicts that were not merged") {
-          reportConflictsMissedByTheMerge(mergedEntries, log)
-        }
-        val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
-          if (ao.repeatableBuild) // we need the jars in a specific order to have a consistent hash
-            mergedEntries.flatMap(_.entries).seq.sortBy(_.target)
-          else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
-            mergedEntries.flatMap(_.entries).par
-        }
-        val localTime = timestamp
-          .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
-          .getOrElse(System.currentTimeMillis())
 
-        timed(Level.Debug, "Create jar") {
-          IO.delete(output)
-          createJar(output, jarEntriesToWrite, jarManifest, localTime)
-        }
-        val fullSha1 = timed(Level.Debug, "Hash newly-built Jar") {
-          hash(output)
-        }
-        val builtAssemblyJar =
-          if (ao.appendContentHash) {
-            val sha1 = ao.maxHashLength.fold(fullSha1)(length => fullSha1.take(length))
-            val newName = output.getName.replaceAll("\\.[^.]*$", "") + "-" + sha1 + ".jar"
-            val outputWithHash = new File(output.getParentFile, newName)
-            IO.delete(outputWithHash)
-            Files.move(output.toPath, outputWithHash.toPath, StandardCopyOption.REPLACE_EXISTING)
-            outputWithHash
-          } else output
-        ao.prependShellScript
-          .foreach { shellScript =>
-            timed(Level.Info, "Prepend shell script") {
-              val tmp = cacheDir / "assemblyExec.tmp"
-              if (tmp.exists) IO.delete(tmp)
-              Files.move(builtAssemblyJar.toPath, tmp.toPath)
-              IO.write(builtAssemblyJar, shellScript.map(_ + "\n").mkString, append = false)
-              Using.fileOutputStream(true)(builtAssemblyJar)(out => IO.transfer(tmp, out))
-              IO.delete(tmp)
-              if (!scala.util.Properties.isWin) {
-                val posixPermissions = Files.getPosixFilePermissions(builtAssemblyJar.toPath)
-                posixPermissions.add(PosixFilePermission.OWNER_EXECUTE)
-                posixPermissions.add(PosixFilePermission.GROUP_EXECUTE)
-                posixPermissions.add(PosixFilePermission.OTHERS_EXECUTE)
-                Files.setPosixFilePermissions(builtAssemblyJar.toPath, posixPermissions)
-              }
+    val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
+      (classMappings ++ jarFileEntries.flatten)
+        .partition(mapping => ao.mergeStrategy(mapping.target).name == MergeStrategy.rename.name)
+    }
+    val renamedEntries = timed(Level.Debug, "Process renames") {
+      merge(mappingsToRename, path => Option(ao.mergeStrategy(path)), log)
+    }
+    // convert renames back to `Dependency`s for second-pass merge and cache-invalidation
+    val renamedDependencies = convertToDependency(renamedEntries)
+    val (jarManifest, timestamp) = createManifest(po, log)
+    // exclude renames from the second pass
+    val secondPassMergeStrategy = (path: String) => {
+      val mergeStrategy = ao.mergeStrategy(path)
+      if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
+      else Option(mergeStrategy)
+    }
+    val buildAssembly = () => {
+      val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
+        merge(renamedDependencies ++ others, secondPassMergeStrategy, log)
+      }
+      timed(Level.Debug, "Report merge results") {
+        reportMergeResults(renamedEntries, log)
+        reportMergeResults(mergedEntries, log)
+      }
+      timed(Level.Debug, "Finding remaining conflicts that were not merged") {
+        reportConflictsMissedByTheMerge(mergedEntries, log)
+      }
+      val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
+        if (ao.repeatableBuild) // we need the jars in a specific order to have a consistent hash
+          mergedEntries.flatMap(_.entries).seq.sortBy(_.target)
+        else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
+          mergedEntries.flatMap(_.entries).par
+      }
+      val localTime = timestamp
+        .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
+        .getOrElse(System.currentTimeMillis())
+
+      timed(Level.Debug, "Create jar") {
+        IO.delete(output)
+        createJar(output, jarEntriesToWrite, jarManifest, localTime)
+      }
+      val fullSha1 = timed(Level.Debug, "Hash newly-built Jar") {
+        hash(output)
+      }
+      val builtAssemblyJar =
+        if (ao.appendContentHash) {
+          val sha1 = ao.maxHashLength.fold(fullSha1)(length => fullSha1.take(length))
+          val newName = output.getName.replaceAll("\\.[^.]*$", "") + "-" + sha1 + ".jar"
+          val outputWithHash = new File(output.getParentFile, newName)
+          IO.delete(outputWithHash)
+          Files.move(output.toPath, outputWithHash.toPath, StandardCopyOption.REPLACE_EXISTING)
+          outputWithHash
+        } else output
+      ao.prependShellScript
+        .foreach { shellScript =>
+          timed(Level.Info, "Prepend shell script") {
+            val tmp = cacheDir / "assemblyExec.tmp"
+            if (tmp.exists) IO.delete(tmp)
+            Files.move(builtAssemblyJar.toPath, tmp.toPath)
+            IO.write(builtAssemblyJar, shellScript.map(_ + "\n").mkString, append = false)
+            Using.fileOutputStream(true)(builtAssemblyJar)(out => IO.transfer(tmp, out))
+            IO.delete(tmp)
+            if (!scala.util.Properties.isWin) {
+              val posixPermissions = Files.getPosixFilePermissions(builtAssemblyJar.toPath)
+              posixPermissions.add(PosixFilePermission.OWNER_EXECUTE)
+              posixPermissions.add(PosixFilePermission.GROUP_EXECUTE)
+              posixPermissions.add(PosixFilePermission.OTHERS_EXECUTE)
+              Files.setPosixFilePermissions(builtAssemblyJar.toPath, posixPermissions)
             }
           }
-        log.info("Built: " + builtAssemblyJar.toPath)
-        log.info("Jar hash: " + fullSha1)
-        builtAssemblyJar
-      }
-      val mergeStrategiesByPathList = timed(Level.Debug, "Collect all merge strategies for cache check") {
-        // collect all
-        (renamedDependencies ++ others)
-          .groupBy(_.target)
-          .map { case (target, _) =>
-            val mergeStrategy = secondPassMergeStrategy(target).getOrElse(MergeStrategy.deduplicate)
-            target -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
-          }
-      }
-      if (
-        ao.cacheOutput &&
-        !mergeStrategiesByPathList.values
-          .exists { case (isBuiltIn, name) =>
-            // if there is at least one custom merge strategy, we cannot predict what it does so we cannot use caching
-            if (!isBuiltIn) log.warn(s"Caching disabled because of a custom merge strategy: '$name'")
-            !isBuiltIn
-          }
-      ) {
-        val (_, classes) = classByParentDir.unzip
-        val cacheKey = lastModified(classes.toSet ++ filteredJars.map(_.data).toSet) :+:
-          mergeStrategiesByPathList :+:
-          jarManifest :+:
-          ao.repeatableBuild :+:
-          ao.prependShellScript :+:
-          ao.maxHashLength :+:
-          ao.appendContentHash :+:
-          HNil
-        cachedAssembly(cacheKey, cacheDir, ao.scalaVersion, log)(buildAssembly)
-      } else buildAssembly()
-    } finally
-      timed(Level.Debug, "Close library jar references") {
-        jarFiles.foreach(_.close())
-      }
+        }
+      log.info("Built: " + builtAssemblyJar.toPath)
+      log.info("Jar hash: " + fullSha1)
+      builtAssemblyJar
+    }
+    val mergeStrategiesByPathList = timed(Level.Debug, "Collect all merge strategies for cache check") {
+      // collect all
+      (renamedDependencies ++ others)
+        .groupBy(_.target)
+        .map { case (target, _) =>
+          val mergeStrategy = secondPassMergeStrategy(target).getOrElse(MergeStrategy.deduplicate)
+          target -> (mergeStrategy.isBuiltIn -> mergeStrategy.name)
+        }
+    }
+    if (
+      ao.cacheOutput &&
+      !mergeStrategiesByPathList.values
+        .exists { case (isBuiltIn, name) =>
+          // if there is at least one custom merge strategy, we cannot predict what it does so we cannot use caching
+          if (!isBuiltIn) log.warn(s"Caching disabled because of a custom merge strategy: '$name'")
+          !isBuiltIn
+        }
+    ) {
+      val (_, classes) = classByParentDir.unzip
+      val cacheKey = lastModified(classes.toSet ++ filteredJars.map(_.data).toSet) :+:
+        mergeStrategiesByPathList :+:
+        jarManifest :+:
+        ao.repeatableBuild :+:
+        ao.prependShellScript :+:
+        ao.maxHashLength :+:
+        ao.appendContentHash :+:
+        HNil
+      cachedAssembly(cacheKey, cacheDir, ao.scalaVersion, log)(buildAssembly)
+    } else buildAssembly()
   }
 
   /**
