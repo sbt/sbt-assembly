@@ -223,7 +223,7 @@ ThisBuild / assemblyMergeStrategy := {
 The `CustomMergeStrategy` accepts a `name` and a `notifyIfGTE` that affects how the result is reported in the logs.
 Please see the scaladoc for more details.
 
-Finally, to perform the actual merge/transformation logic, a function has to be provided. The function acceptsa `Vector` of `Dependency`, where you can access the `target` of type `String` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
+Finally, to perform the actual merge/transformation logic, a function has to be provided. The function accepts a `Vector` of `Dependency`, where you can access the `target` of type `String` and the byte payload of type `LazyInputStream`, which is just a type alias for `() => InputStream`.
 
 The input `Dependency` also has two subtypes that you can pattern match on:
   - `Project` represents an internal/project dependency
