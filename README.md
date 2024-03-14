@@ -548,21 +548,15 @@ lazy val app = (project in file("app"))
 
 ### Publishing (Not Recommended)
 
-Publishing über JARs out to the world is discouraged because non-modular JARs cause much sadness. One might think non-modularity is convenience but it quickly turns into a headache the moment your users step outside of Hello World example code. If you still wish to publish your assembled artifact along with the `publish` task
-and all of the other artifacts, add an `assembly` classifier (or other):
+We discourage you from publishing non-shaded über JARs beyond deployment. The moment your über JAR is used as a library, it becomes a **parasitized über JAR**, bringing in parasite libraries that can not be excluded or resolved. One might think non-modularity is convenience, but it turns into others' headache down the road.
 
-```scala
-assembly / artifact := {
-  val art = (assembly / artifact).value
-  art.withClassifier(Some("assembly"))
-}
+Here are some example of parasitized über JARs:
 
-addArtifact(assembly / artifact, assembly)
-```
+- hive-exec 2.3.9 and 3.1.3 contain com.google.common, com.google.protobuf, io.airlift, org.apache.parquet, org.codehaus.jackson, org.joda.time, etc.
 
 ### Q: Despite the concerned friends, I still want publish über JARs. What advice do you have?
 
-You would likely need to set up a front business to lie about what dependencies you have in `pom.xml` and `ivy.xml`.
+Shade everything. Next, you would likely need to set up a front business to lie about what dependencies you have in `pom.xml` and `ivy.xml`.
 To do so, make a subproject for über JAR purpose only where you depend on the dependencies, and make a second cosmetic subproject that you use only for publishing purpose:
 
 ```scala
@@ -576,7 +570,6 @@ lazy val uberJar = project
 lazy val cosmetic = project
   .settings(
     name := "shaded-something",
-    // I am sober. no dependencies.
     Compile / packageBin := (uberJar / assembly).value
   )
 ```
