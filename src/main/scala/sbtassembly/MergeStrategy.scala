@@ -122,10 +122,11 @@ object MergeStrategy {
    * Verifies if all the conflicts have the same content, otherwise error out
    */
   val deduplicate: MergeStrategy = MergeStrategy("Deduplicate") { conflicts =>
-    val conflictContents = conflicts.map(_.stream()).map(Streamable.bytes(_))
-    val fingerprints = Set() ++ conflictContents.map(sbtassembly.Assembly.sha1Content)
+    val fingerprints = conflicts.map(dep =>
+      sbtassembly.Assembly.sha1Content(dep.stream())
+    ).toSet
     if (fingerprints.size == 1)
-      Right(Vector(JarEntry(conflicts.head.target, () => new ByteArrayInputStream(conflictContents.head))))
+      Right(Vector(JarEntry(conflicts.head.target, conflicts.head.stream)))
     else
       Left(
         s"Deduplicate found different file contents in the following:$newLineIndented${conflicts.mkString(newLineIndented)}"

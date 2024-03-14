@@ -699,14 +699,14 @@ object Assembly {
 
   private[sbtassembly] def sha1 = MessageDigest.getInstance("SHA-1")
 
-  private[sbtassembly] def sha1Content(b: Array[Byte]): String =
-    byteArrayInputStreamResource(b) { in =>
+  private[sbtassembly] def sha1Content(stream: InputStream): String =
+    {
       val messageDigest = sha1
       val buffer = new Array[Byte](8192)
 
       @tailrec
       def read(): Unit = {
-        val byteCount = in.read(buffer)
+        val byteCount = stream.read(buffer)
         if (byteCount >= 0) {
           messageDigest.update(buffer, 0, byteCount)
           read()
@@ -714,6 +714,7 @@ object Assembly {
       }
 
       read()
+      stream.close()
       bytesToString(messageDigest.digest())
     }
 
