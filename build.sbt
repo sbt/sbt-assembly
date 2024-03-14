@@ -10,15 +10,15 @@ def scala212 = "2.12.18"
 ThisBuild / crossScalaVersions := Seq(scala212)
 ThisBuild / scalaVersion := scala212
 
+lazy val jarjar = "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.14.0"
+
 lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin, ContrabandPlugin, SbtPlugin)
   .settings(pomConsistency2021DraftSettings)
   .settings(nocomma {
     name := "sbt-assembly"
     scalacOptions := Seq("-deprecation", "-unchecked", "-Dscalac.patmat.analysisBudget=1024", "-Xfuture")
-    libraryDependencies ++= Seq(
-      "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.13.1",
-    )
+    libraryDependencies += jarjar
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.2.8"
