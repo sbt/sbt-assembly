@@ -347,8 +347,15 @@ object Assembly {
           .getOrElse(System.currentTimeMillis())
 
         timed(Level.Debug, "Create jar") {
-          IO.delete(output)
-          createJar(output, jarEntriesToWrite, jarManifest, localTime)
+          if (output.isDirectory) {
+            val invalidPath = output.toPath.toAbsolutePath.normalize
+            log.error(s"Attempted to overwrite existing directory: $invalidPath")
+            log.error("Update 'assemblyOutputPath' key or manually delete the corresponding path.")
+            throw new RuntimeException("Exiting task")
+          } else {
+            IO.delete(output)
+            createJar(output, jarEntriesToWrite, jarManifest, localTime)
+          }
         }
         val fullSha1 = timed(Level.Debug, "Hash newly-built Jar") {
           hash(output)
