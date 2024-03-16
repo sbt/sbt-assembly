@@ -349,8 +349,7 @@ object Assembly {
         timed(Level.Debug, "Create jar") {
           if (output.isDirectory) {
             val invalidPath = output.toPath.toAbsolutePath.normalize
-            log.error(s"Attempted to overwrite existing directory: $invalidPath")
-            log.error("Update 'assemblyOutputPath' key or manually delete the corresponding path.")
+            log.error(s"expected a file name for assemblyOutputPath, but found a directory: ${invalidPath}; fix the setting or delete the directory")
             throw new RuntimeException("Exiting task")
           } else {
             IO.delete(output)
