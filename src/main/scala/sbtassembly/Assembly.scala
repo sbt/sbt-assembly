@@ -67,7 +67,7 @@ object Assembly {
 
   /* Closeable resources */
   private[sbtassembly] val jarFileSystemResource =
-    Using.resource((uri: URI) => FileSystems.newFileSystem(uri, Map("create" -> "true").asJava))
+    Using.resource((uri: URI) => FileSystems.newFileSystem(uri, Map.empty[String, String].asJava))
   private[sbtassembly] val jarEntryInputStreamResource = Using.resource((entry: JarEntry) => entry.stream())
   private[sbtassembly] val jarEntryOutputStreamResource = Using.resource((path: Path) =>
     Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
@@ -353,6 +353,10 @@ object Assembly {
             throw new RuntimeException("Exiting task")
           } else {
             IO.delete(output)
+            val dest = output.getParentFile
+            if (!dest.exists()) {
+              dest.mkdirs()
+            }
             createJar(output, jarEntriesToWrite, jarManifest, localTime)
           }
         }
