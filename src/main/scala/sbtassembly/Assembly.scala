@@ -67,7 +67,7 @@ object Assembly {
 
   /* Closeable resources */
   private[sbtassembly] val jarFileSystemResource =
-    Using.resource((uri: URI) => FileSystems.newFileSystem(uri, Map.empty[String, String].asJava))
+    Using.resource((uri: URI) => FileSystems.newFileSystem(uri, Map("create" -> "true").asJava))
   private[sbtassembly] val jarEntryInputStreamResource = Using.resource((entry: JarEntry) => entry.stream())
   private[sbtassembly] val jarEntryOutputStreamResource = Using.resource((path: Path) =>
     Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
