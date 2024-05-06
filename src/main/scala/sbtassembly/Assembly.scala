@@ -353,6 +353,10 @@ object Assembly {
             throw new RuntimeException("Exiting task")
           } else {
             IO.delete(output)
+            val dest = output.getParentFile
+            if (!dest.exists()) {
+              dest.mkdirs()
+            }
             createJar(output, jarEntriesToWrite, jarManifest, localTime)
           }
         }
