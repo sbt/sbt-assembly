@@ -1,0 +1,28 @@
+package sbtassembly
+@target(Scala)
+
+type AssemblyShadeRule {
+  rule: com.eed3si9n.jarjarabrams.ShadeRule!
+  moduleIds: [sbt.librarymanagement.ModuleID]
+
+  #x def inAll: AssemblyShadeRule = this.withRule(rule.inAll)
+  #x def inProject: AssemblyShadeRule = this.withRule(rule.inProject)
+  #x def inModuleCoordinates(modules: com.eed3si9n.jarjarabrams.ModuleCoordinate*): AssemblyShadeRule =
+  #x   this.withRule(rule.inModuleCoordinates(modules: _*))
+  #x def inLibrary(modules: sbt.librarymanagement.ModuleID*): AssemblyShadeRule = this.withModuleIds(moduleIds ++ modules)
+
+  #x def toShadeRule(scalaVersion: String, scalaBinaryVersion: String): com.eed3si9n.jarjarabrams.ShadeRule =
+  #x   rule.inModuleCoordinates(
+  #x     moduleIds
+  #x       .map(sbt.librarymanagement.CrossVersion(scalaVersion, scalaBinaryVersion))
+  #x       .map(m => com.eed3si9n.jarjarabrams.ModuleCoordinate(m.organization, m.name, m.revision)): _*
+  #x   )
+
+  #xcompanion trait implicits {
+  #xcompanion   implicit def assemblyShadeRuleFromShareRule(rule: com.eed3si9n.jarjarabrams.ShadeRule): AssemblyShadeRule = AssemblyShadeRule(rule)
+  #xcompanion   implicit def assemblyShadeRuleFromShadePattern(pattern: com.eed3si9n.jarjarabrams.ShadePattern): AssemblyShadeRule = AssemblyShadeRule(pattern)
+  #xcompanion }
+
+  #xcompanion def apply(rule: com.eed3si9n.jarjarabrams.ShadeRule): AssemblyShadeRule = AssemblyShadeRule(rule, Vector.empty)
+  #xcompanion def apply(pattern: com.eed3si9n.jarjarabrams.ShadePattern): AssemblyShadeRule = AssemblyShadeRule(com.eed3si9n.jarjarabrams.ShadeRule(pattern, Vector.empty))
+}
