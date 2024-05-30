@@ -1,0 +1,3 @@
+package removed
+
+class ShadeClass

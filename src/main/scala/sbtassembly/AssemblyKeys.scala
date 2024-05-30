@@ -16,6 +16,7 @@ trait AssemblyKeys {
   lazy val assemblyExcludedJars      = taskKey[Classpath]("list of excluded jars")
   lazy val assemblyMergeStrategy     = settingKey[String => MergeStrategy]("mapping from archive member path to merge strategy")
   lazy val assemblyShadeRules        = settingKey[Seq[jarjarabrams.ShadeRule]]("shading rules backed by jarjar")
+  lazy val assemblyKeepRules         = settingKey[Seq[String]]("Keep rules backed by jarjar to run on the final assembled JAR")
   lazy val assemblyAppendContentHash = settingKey[Boolean]("Appends SHA-1 fingerprint to the assembly file name")
   lazy val assemblyMaxHashLength     = settingKey[Int]("Length of SHA-1 fingerprint used for the assembly file name")
   lazy val assemblyCacheOutput       = settingKey[Boolean]("Enables (true) or disables (false) cacheing the output if the content has not changed")

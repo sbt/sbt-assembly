@@ -3,27 +3,29 @@ package sbtassembly
 import com.eed3si9n.jarjarabrams._
 import sbt.Def.Initialize
 import sbt.Keys._
-import sbt.Package.{ manifestFormat, JarManifest, MainClass, ManifestAttributes }
+import sbt.Package.{JarManifest, MainClass, ManifestAttributes, manifestFormat}
 import sbt.internal.util.HListFormats._
 import sbt.internal.util.HNil
 import sbt.internal.util.Types.:+:
-import sbt.io.{ DirectoryFilter => _, IO => _, Path => _, Using }
+import sbt.io.{Using, DirectoryFilter => _, IO => _, Path => _}
 import sbt.util.FileInfo.lastModified
-import sbt.util.Tracked.{ inputChanged, lastOutput }
-import sbt.util.{ FilesInfo, Level, ModifiedFileInfo }
-import sbt.{ File, Logger, _ }
+import sbt.util.Tracked.{inputChanged, lastOutput}
+import sbt.util.{FilesInfo, Level, ModifiedFileInfo}
+import sbt.{File, Logger, _}
 import sbt.Tags.Tag
 import CacheImplicits._
-import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, _ }
+import com.eed3si9n.jarjar.util.EntryStruct
+import com.eed3si9n.jarjar.{JJProcessor, Keep}
+import sbtassembly.AssemblyPlugin.autoImport.{Assembly => _, _}
 import sbtassembly.PluginCompat.ClasspathUtilities
 
 import java.io._
 import java.net.URI
-import java.nio.file.attribute.{ BasicFileAttributeView, FileTime, PosixFilePermission }
-import java.nio.file.{ Path, _ }
+import java.nio.file.attribute.{BasicFileAttributeView, FileTime, PosixFilePermission}
+import java.nio.file.{Path, _}
 import java.security.MessageDigest
 import java.time.Instant
-import java.util.jar.{ Attributes => JAttributes, JarFile, Manifest => JManifest }
+import java.util.jar.{JarFile, Attributes => JAttributes, Manifest => JManifest}
 import scala.annotation.tailrec
 import scala.collection.GenSeq
 import scala.collection.JavaConverters._
@@ -36,7 +38,8 @@ object Assembly {
   type SeqShadeRules = Seq[com.eed3si9n.jarjarabrams.ShadeRule]
   type LazyInputStream = () => InputStream
 
-  val defaultShadeRules: Seq[com.eed3si9n.jarjarabrams.ShadeRule] = Nil
+  val defaultShadeRules: SeqShadeRules = Nil
+  val defaultKeepRules: SeqString = Nil
   val newLine: String = "\n"
   val indent: String = " " * 2
   val newLineIndented: String = newLine + indent
@@ -336,11 +339,15 @@ object Assembly {
         timed(Level.Debug, "Finding remaining conflicts that were not merged") {
           reportConflictsMissedByTheMerge(mergedEntries, log)
         }
+        val finalEntries = timed(Level.Debug, "Applying keep rules") {
+          val entries = mergedEntries.flatMap(_.entries)
+          if (ao.keepRules.isEmpty) entries else keepShader(ao.keepRules, log, entries)
+        }
         val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
           if (ao.repeatableBuild) // we need the jars in a specific order to have a consistent hash
-            mergedEntries.flatMap(_.entries).seq.sortBy(_.target)
+            finalEntries.seq.sortBy(_.target)
           else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
-            mergedEntries.flatMap(_.entries).par
+            finalEntries.par
         }
         val localTime = timestamp
           .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
@@ -577,6 +584,37 @@ object Assembly {
           view.setTimes(fileTime, fileTime, fileTime)
         }
     }
+  }
+
+  private[sbtassembly] def keepShader(keepRules: SeqString, log: Logger, entries: Seq[JarEntry]): Seq[JarEntry] = {
+    val jjRules = keepRules.map(pattern => {
+      val jRule = new Keep()
+      jRule.setPattern(pattern)
+      jRule
+    })
+
+    val proc = new JJProcessor(jjRules, true, true, null)
+
+    val entryStructs = entries.map({ entry =>
+      val stream = entry.stream()
+      val entryStruct = new EntryStruct()
+      val mapping = entry.target
+      entryStruct.name = if (mapping.contains('\\')) mapping.replace('\\', '/') else mapping
+      entryStruct.data = Streamable.bytes(stream)
+      entryStruct.time = -1
+      entryStruct.skipTransform = false
+      stream.close()
+      entryStruct
+    })
+
+    val itemsToExclude = proc.getExcludes
+    log.info(s"items to exclude: ${itemsToExclude.size}")
+    entryStructs.filterNot(entry => itemsToExclude.contains(entry.name))
+      .map(entryStruct => {
+        val mapping = entryStruct.name
+        val name = if (mapping.contains('/')) mapping.replace('/', '\\') else mapping
+        JarEntry(name, () => new ByteArrayInputStream(entryStruct.data))
+      })
   }
 
   private[sbtassembly] def createManifest(po: Seq[PackageOption], log: Logger): (JManifest, Option[Long]) = {

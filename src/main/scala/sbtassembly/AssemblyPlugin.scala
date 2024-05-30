@@ -29,6 +29,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   override lazy val globalSettings: Seq[Def.Setting[_]] = Seq(
     assemblyMergeStrategy := MergeStrategy.defaultMergeStrategy,
     assemblyShadeRules := Nil,
+    assemblyKeepRules := Nil,
     assemblyExcludedJars := Nil,
     assembleArtifact in packageBin := true,
     assembleArtifact in assemblyPackageScala := true,
@@ -118,6 +119,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withPrependShellScript(assemblyPrependShellScript.value)
         .withMaxHashLength(assemblyMaxHashLength.?.value)
         .withShadeRules(assemblyShadeRules.value)
+        .withKeepRules(assemblyKeepRules.value)
         .withScalaVersion(scalaVersion.value)
         .withLevel(logLevel.?.value.getOrElse(Level.Info))
         .withRepeatableBuild(assemblyRepeatableBuild.value)
