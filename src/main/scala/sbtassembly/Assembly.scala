@@ -17,7 +17,7 @@ import CacheImplicits._
 import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, _ }
 import sbtassembly.PluginCompat.ClasspathUtilities
 
-import java.io._
+import java.io.{ BufferedInputStream, ByteArrayInputStream, FileInputStream, InputStream }
 import java.net.URI
 import java.nio.file.attribute.{ BasicFileAttributeView, FileTime, PosixFilePermission }
 import java.nio.file.{ Path, _ }
