@@ -30,9 +30,9 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyMergeStrategy := MergeStrategy.defaultMergeStrategy,
     assemblyShadeRules := Nil,
     assemblyExcludedJars := Nil,
-    assembleArtifact in packageBin := true,
-    assembleArtifact in assemblyPackageScala := true,
-    assembleArtifact in assemblyPackageDependency := true,
+    packageBin / assembleArtifact := true,
+    assemblyPackageScala / assembleArtifact := true,
+    assemblyPackageDependency / assembleArtifact := true,
     assemblyAppendContentHash := false,
     assemblyPrependShellScript := None,
     assemblyCacheOutput := true,
@@ -44,14 +44,14 @@ object AssemblyPlugin extends sbt.AutoPlugin {
 
   // Compile-specific defaults
   lazy val assemblySettings: Seq[sbt.Def.Setting[_]] = baseAssemblySettings ++ Seq(
-    packageOptions in assembly := {
+    assembly / packageOptions := {
       val os = (packageOptions in (Compile, packageBin)).value
-      (mainClass in assembly).value map { s =>
+      (assembly / mainClass).value map { s =>
         Package.MainClass(s) +: (os filterNot { _.isInstanceOf[Package.MainClass] })
       } getOrElse os
     },
-    packageOptions in assemblyPackageScala := (packageOptions in (Compile, packageBin)).value,
-    packageOptions in assemblyPackageDependency := (packageOptions in (Compile, packageBin)).value
+    assemblyPackageScala / packageOptions := (packageOptions in (Compile, packageBin)).value,
+    assemblyPackageDependency / packageOptions := (packageOptions in (Compile, packageBin)).value
   )
 
   lazy val baseAssemblySettings: Seq[sbt.Def.Setting[_]] = (Seq(
@@ -60,44 +60,44 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyPackageDependency := Assembly.assemblyTask(assemblyPackageDependency).value,
 
     // test
-    test in assembly := {},
-    test in assemblyPackageScala := (test in assembly).value,
-    test in assemblyPackageDependency := (test in assembly).value,
+    assembly / test := {},
+    assemblyPackageScala / test := (assembly / test).value,
+    assemblyPackageDependency / test := (assembly / test).value,
 
     // packageOptions not specific to Compile scope. see also assemblySettings
-    packageOptions in assembly := {
-      val os = (packageOptions in packageBin).value
-      (mainClass in assembly).value map { s =>
+    assembly / packageOptions := {
+      val os = (packageBin / packageOptions).value
+      (assembly / mainClass).value map { s =>
         Package.MainClass(s) +: (os filterNot { _.isInstanceOf[Package.MainClass] })
       } getOrElse os
     },
-    packageOptions in assemblyPackageScala := (packageOptions in packageBin).value,
-    packageOptions in assemblyPackageDependency := (packageOptions in packageBin).value,
+    assemblyPackageScala / packageOptions := (packageBin / packageOptions).value,
+    assemblyPackageDependency / packageOptions := (packageBin / packageOptions).value,
 
     // outputPath
-    target in assembly := crossTarget.value,
-    assemblyOutputPath in assembly := (target in assembly).value / (assemblyJarName in assembly).value,
-    assemblyOutputPath in assemblyPackageScala := (target in assembly).value / (assemblyJarName in assemblyPackageScala).value,
-    assemblyOutputPath in assemblyPackageDependency := (target in assembly).value / (assemblyJarName in assemblyPackageDependency).value,
-    assemblyJarName in assembly := ((assemblyJarName in assembly) or (assemblyDefaultJarName in assembly)).value,
-    assemblyJarName in assemblyPackageScala := ((assemblyJarName in assemblyPackageScala) or (assemblyDefaultJarName in assemblyPackageScala)).value,
-    assemblyJarName in assemblyPackageDependency := ((assemblyJarName in assemblyPackageDependency) or (assemblyDefaultJarName in assemblyPackageDependency)).value,
-    assemblyDefaultJarName in assemblyPackageScala := "scala-library-" + scalaVersion.value + "-assembly.jar",
-    assemblyDefaultJarName in assemblyPackageDependency := name.value + "-assembly-" + version.value + "-deps.jar",
-    assemblyDefaultJarName in assembly := name.value + "-assembly-" + version.value + ".jar",
-    mainClass in assembly := (mainClass or (mainClass in Runtime)).value,
-    fullClasspath in assembly := (fullClasspath or (fullClasspath in Runtime)).value,
-    externalDependencyClasspath in assembly := (externalDependencyClasspath or (externalDependencyClasspath in Runtime)).value
+    assembly / target := crossTarget.value,
+    assembly / assemblyOutputPath := (assembly / target).value / (assembly / assemblyJarName).value,
+    assemblyPackageScala / assemblyOutputPath := (assembly / target).value / (assemblyPackageScala / assemblyJarName).value,
+    assemblyPackageDependency / assemblyOutputPath := (assembly / target).value / (assemblyPackageDependency / assemblyJarName).value,
+    assembly / assemblyJarName := ((assembly / assemblyJarName) or (assembly / assemblyDefaultJarName)).value,
+    assemblyPackageScala / assemblyJarName := ((assemblyPackageScala / assemblyJarName) or (assemblyPackageScala / assemblyDefaultJarName)).value,
+    assemblyPackageDependency / assemblyJarName := ((assemblyPackageDependency / assemblyJarName) or (assemblyPackageDependency / assemblyDefaultJarName)).value,
+    assemblyPackageScala / assemblyDefaultJarName := "scala-library-" + scalaVersion.value + "-assembly.jar",
+    assemblyPackageDependency / assemblyDefaultJarName := name.value + "-assembly-" + version.value + "-deps.jar",
+    assembly / assemblyDefaultJarName := name.value + "-assembly-" + version.value + ".jar",
+    assembly / mainClass := (mainClass or (Runtime / mainClass)).value,
+    assembly / fullClasspath := (fullClasspath or (Runtime / fullClasspath)).value,
+    assembly / externalDependencyClasspath := (externalDependencyClasspath or (Runtime / externalDependencyClasspath)).value
   ) ++ inTask(assembly)(assemblyOptionSettings)
     ++ inTask(assemblyPackageScala)(assemblyOptionSettings)
     ++ inTask(assemblyPackageDependency)(assemblyOptionSettings)
     ++ Seq(
-      assemblyOption in assemblyPackageScala ~= {
+      assemblyPackageScala / assemblyOption ~= {
         _.withIncludeBin(false)
           .withIncludeScala(true)
           .withIncludeDependency(false)
       },
-      assemblyOption in assemblyPackageDependency ~= {
+      assemblyPackageDependency / assemblyOption ~= {
         _.withIncludeBin(false)
           .withIncludeScala(true)
           .withIncludeDependency(true)
@@ -108,9 +108,9 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyOption := {
       val s = streams.value
       AssemblyOption()
-        .withIncludeBin((assembleArtifact in packageBin).value)
-        .withIncludeScala((assembleArtifact in assemblyPackageScala).value)
-        .withIncludeDependency((assembleArtifact in assemblyPackageDependency).value)
+        .withIncludeBin((packageBin / assembleArtifact).value)
+        .withIncludeScala((assemblyPackageScala / assembleArtifact).value)
+        .withIncludeDependency((assemblyPackageDependency / assembleArtifact).value)
         .withMergeStrategy(assemblyMergeStrategy.value)
         .withExcludedJars(assemblyExcludedJars.value)
         .withCacheOutput(assemblyCacheOutput.value)
