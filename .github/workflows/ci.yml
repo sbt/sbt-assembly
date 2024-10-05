@@ -19,7 +19,7 @@ jobs:
             java: 21
             distribution: temurin
           - os: ubuntu-latest
-            java: 22-ea
+            java: 24-ea
             distribution: temurin
           - os: windows-latest
             java: 11
