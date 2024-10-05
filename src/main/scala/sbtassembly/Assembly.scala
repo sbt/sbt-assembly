@@ -183,15 +183,15 @@ object Assembly {
   }
 
   def assemblyTask(key: TaskKey[File]): Initialize[Task[File]] = Def.task {
-    val t = (test in key).value
-    val s = (streams in key).value
+    val t = (key / test).value
+    val s = (key / streams).value
     assemble(
-      (assemblyJarName in key).value.replaceAll(".jar", ""),
-      (assemblyOutputPath in key).value,
-      (fullClasspath in assembly).value,
-      (externalDependencyClasspath in assembly).value,
-      (assemblyOption in key).value,
-      (packageOptions in key).value,
+      (key / assemblyJarName).value.replaceAll(".jar", ""),
+      (key / assemblyOutputPath).value,
+      (assembly / fullClasspath).value,
+      (assembly / externalDependencyClasspath).value,
+      (key / assemblyOption).value,
+      (key / packageOptions).value,
       s.cacheDirectory,
       s.log
     )
