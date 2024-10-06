@@ -3,24 +3,19 @@ package sbtassembly
 import com.eed3si9n.jarjarabrams._
 import sbt.Def.Initialize
 import sbt.Keys._
-import sbt.Package.{ manifestFormat, JarManifest, MainClass, ManifestAttributes }
-import sbt.internal.util.HListFormats._
-import sbt.internal.util.HNil
-import sbt.internal.util.Types.:+:
+import sbt.Package.{ manifestFormat, JarManifest, MainClass, ManifestAttributes, FixedTimestamp }
+import sbt.internal.inc.classpath.ClasspathUtil
 import sbt.io.{ DirectoryFilter => _, IO => _, Path => _, Using }
-import sbt.util.FileInfo.lastModified
-import sbt.util.Tracked.{ inputChanged, lastOutput }
 import sbt.util.{ FilesInfo, Level, ModifiedFileInfo }
 import sbt.{ File, Logger, _ }
 import sbt.Tags.Tag
 import CacheImplicits._
 import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, _ }
-import sbtassembly.PluginCompat.ClasspathUtilities
 
 import java.io.{ BufferedInputStream, ByteArrayInputStream, FileInputStream, InputStream }
 import java.net.URI
 import java.nio.file.attribute.{ BasicFileAttributeView, FileTime, PosixFilePermission }
-import java.nio.file.{ Path, _ }
+import java.nio.file.{ Path => NioPath, _ }
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.jar.{ Attributes => JAttributes, JarFile, Manifest => JManifest }
@@ -28,7 +23,9 @@ import scala.annotation.tailrec
 import scala.collection.GenSeq
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
-import scala.tools.nsc.io.Streamable
+import xsbti.FileConverter
+import PluginCompat.*
+import CollectionConverters.{ given, * }
 
 object Assembly {
   // used for contraband
@@ -43,15 +40,6 @@ object Assembly {
 
   val assemblyTag = Tag("assembly")
 
-  private[sbtassembly] type CacheKey = FilesInfo[ModifiedFileInfo] :+:
-    Map[String, (Boolean, String)] :+: // map of target paths that matched a merge strategy
-    JManifest :+:
-    // Assembly options...
-    Boolean :+:
-    Option[Seq[String]] :+:
-    Option[Int] :+:
-    Boolean :+:
-    HNil
   private[sbtassembly] val scalaPre213Libraries = Vector(
     "scala-actors",
     "scala-compiler",
@@ -69,7 +57,7 @@ object Assembly {
   private[sbtassembly] val jarFileSystemResource =
     Using.resource((uri: URI) => FileSystems.newFileSystem(uri, Map("create" -> "true").asJava))
   private[sbtassembly] val jarEntryInputStreamResource = Using.resource((entry: JarEntry) => entry.stream())
-  private[sbtassembly] val jarEntryOutputStreamResource = Using.resource((path: Path) =>
+  private[sbtassembly] val jarEntryOutputStreamResource = Using.resource((path: NioPath) =>
     Files.newOutputStream(path, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)
   )
   private[sbtassembly] val byteArrayInputStreamResource =
@@ -182,9 +170,10 @@ object Assembly {
     val jarName: String = s"$name${if (version.nonEmpty) "-" else ""}$version.jar"
   }
 
-  def assemblyTask(key: TaskKey[File]): Initialize[Task[File]] = Def.task {
+  def assemblyTask(key: TaskKey[PluginCompat.Out]): Initialize[Task[PluginCompat.Out]] = Def.task {
     val t = (key / test).value
     val s = (key / streams).value
+    val conv = fileConverter.value
     assemble(
       (key / assemblyJarName).value.replaceAll(".jar", ""),
       (key / assemblyOutputPath).value,
@@ -192,6 +181,7 @@ object Assembly {
       (assembly / externalDependencyClasspath).value,
       (key / assemblyOption).value,
       (key / packageOptions).value,
+      conv,
       s.cacheDirectory,
       s.log
     )
@@ -219,9 +209,10 @@ object Assembly {
       externalDepClasspath: Classpath,
       ao: AssemblyOption,
       po: Seq[PackageOption],
+      conv: FileConverter,
       cacheDir: File,
       log: Logger
-  ): File = {
+  ): PluginCompat.Out = {
     def timed[A](level: Level.Value, desc: String)(f: => A): A = {
       log.log(level, desc + " start:")
       val start = Instant.now().toEpochMilli
@@ -230,16 +221,18 @@ object Assembly {
       log.log(level, s"$desc end. Took ${end - start} ms")
       res
     }
+    implicit val ev: FileConverter = conv // used by PluginCompat
     val (jars, dirs) = timed(Level.Debug, "Separate classpath projects and all dependencies") {
-      classpath.toVector.sortBy(_.data.getCanonicalPath).partition(c => ClasspathUtilities.isArchive(c.data))
+      classpath.toVector
+        .sortBy(x => toNioPath(x).toAbsolutePath().toString())
+        .partition(x => ClasspathUtil.isArchive(toNioPath(x)))
     }
     val externalDeps = timed(Level.Debug, "Collect only external dependencies") {
-      externalDepClasspath.map(_.data).toSet.filter(ClasspathUtilities.isArchive)
+      externalDepClasspath.toSet
+        .filter(x => ClasspathUtil.isArchive(toNioPath(x)))
     }
-    val excludedJars = timed(Level.Debug, "Collect excluded jar names") {
-      ao.excludedJars map {
-        _.data
-      }
+    val excludedJars: Vector[NioPath] = timed(Level.Debug, "Collect excluded jar names") {
+      toNioPaths(ao.excludedJars)
     }
     val scalaLibraries = {
       val scalaVersionParts = VersionNumber(ao.scalaVersion)
@@ -250,10 +243,10 @@ object Assembly {
 
     val filteredJars = timed(Level.Debug, "Filter jars") {
       jars.flatMap {
-        case jar if excludedJars contains jar.data.asFile => None
-        case jar if isScalaLibraryFile(scalaLibraries, jar.data.asFile) =>
+        case jar if excludedJars.contains(jar) => None
+        case jar if isScalaLibraryFile(scalaLibraries, toNioPath(jar)) =>
           if (ao.includeScala) Some(jar) else None
-        case jar if externalDeps contains jar.data.asFile =>
+        case jar if externalDeps.contains(jar) =>
           if (ao.includeDependency) Some(jar) else None
         case jar =>
           if (ao.includeBin) Some(jar) else None
@@ -261,15 +254,18 @@ object Assembly {
     }
 
     val classShader = shader(ao.shadeRules.filter(_.isApplicableToCompiling), log)
-    val classByParentDir =
-      if (!ao.includeBin) Vector.empty[(File, File)]
-      else dirs.flatMap(dir => (dir.data ** (-DirectoryFilter)).get.map(dir.data -> _))
+    val classByParentDir: Vector[(NioPath, NioPath)] =
+      if (!ao.includeBin) Vector.empty
+      else dirs.flatMap { dir0 =>
+        val dir = toNioPath(dir0)
+        (dir.toFile ** (-DirectoryFilter)).get().map(dir -> _.toPath())
+      }
     val classMappings =
       timed(Level.Debug, "Collect and shade project classes") {
         classByParentDir
           .flatMap { case (parentDir, file) =>
-            val originalTarget = file.relativeTo(parentDir).get.toPath.toString
-            classShader(originalTarget, () => new BufferedInputStream(new FileInputStream(file)))
+            val originalTarget = parentDir.relativize(file).toString
+            classShader(originalTarget, () => new BufferedInputStream(new FileInputStream(file.toFile())))
               .map { case (shadedName, stream) =>
                 Project(targetJarName, originalTarget, shadedName, stream)
               }
@@ -290,10 +286,11 @@ object Assembly {
     val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect and shade dependency entries") {
       filteredJars.par.map { jar =>
         val module = jar.metadata
-          .get(moduleID.key)
+          .get(PluginCompat.moduleIDStr)
+          .map(PluginCompat.parseModuleIDStrAttribute)
           .map(m => ModuleCoordinate(m.organization, m.name, m.revision))
           .getOrElse(ModuleCoordinate("", jar.data.name.replaceAll(".jar", ""), ""))
-        val jarFile = new JarFile(jar.data)
+        val jarFile = new JarFile(toFile(jar))
         jarFile -> jarFile
           .entries()
           .asScala
@@ -325,7 +322,7 @@ object Assembly {
         if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
         else Option(mergeStrategy)
       }
-      val buildAssembly = () => {
+      val buildAssembly: () => PluginCompat.Out  = () => {
         val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
           merge(renamedDependencies ++ others, secondPassMergeStrategy, log)
         }
@@ -338,9 +335,11 @@ object Assembly {
         }
         val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
           if (ao.repeatableBuild) // we need the jars in a specific order to have a consistent hash
-            mergedEntries.flatMap(_.entries).seq.sortBy(_.target)
+            mergedEntries.flatMap(_.entries)
+              .seq.sortBy(_.target)
           else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
-            mergedEntries.flatMap(_.entries).par
+            mergedEntries.flatMap(_.entries)
+              .par.toVector
         }
         val localTime = timestamp
           .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
@@ -392,7 +391,7 @@ object Assembly {
           }
         log.info("Built: " + builtAssemblyJar.toPath)
         log.info("Jar hash: " + fullSha1)
-        builtAssemblyJar
+        toOutput(builtAssemblyJar)
       }
       val mergeStrategiesByPathList = timed(Level.Debug, "Collect all merge strategies for cache check") {
         // collect all
@@ -413,14 +412,13 @@ object Assembly {
           }
       ) {
         val (_, classes) = classByParentDir.unzip
-        val cacheKey = lastModified(classes.toSet ++ filteredJars.map(_.data).toSet) :+:
-          mergeStrategiesByPathList :+:
-          jarManifest :+:
-          ao.repeatableBuild :+:
-          ao.prependShellScript :+:
-          ao.maxHashLength :+:
-          ao.appendContentHash :+:
-          HNil
+        val cacheKey = makeCacheKey(
+          classes,
+          filteredJars,
+          mergeStrategiesByPathList,
+          jarManifest,
+          ao,
+        )
         cachedAssembly(cacheKey, cacheDir, ao.scalaVersion, log)(buildAssembly)
       } else buildAssembly()
     } finally
@@ -448,7 +446,7 @@ object Assembly {
    * @return flag representing if the file is a license file
    */
   def isLicenseFile(fileName: String): Boolean = {
-    val LicenseFile = """(license|licence|notice|copying)([.]\w+)?$""".r
+    val LicenseFile = """(\._license|license|licence|notice|copying)([.]\w+)?$""".r
     fileName.toLowerCase match {
       case LicenseFile(_, ext) if ext != ".class" => true // DISLIKE
       case _                                      => false
@@ -488,8 +486,8 @@ object Assembly {
    * @param file the given file to check
    * @return flag representing if the file is a Scala library
    */
-  def isScalaLibraryFile(scalaLibraries: Vector[String], file: File): Boolean =
-    scalaLibraries exists { x => file.getName startsWith x }
+  def isScalaLibraryFile(scalaLibraries: Vector[String], file: NioPath): Boolean =
+    scalaLibraries exists { x => file.getFileName.toString.startsWith(x) }
 
   private[sbtassembly] def shader(
       shadeRules: SeqShadeRules,
@@ -517,29 +515,6 @@ object Assembly {
         }
       }
     }
-
-  private[sbtassembly] def cachedAssembly(inputs: CacheKey, cacheDir: File, scalaVersion: String, log: Logger)(
-      buildAssembly: () => File
-  ): File = {
-    val cacheBlock = inputChanged(cacheDir / s"assembly-cacheKey-$scalaVersion") { (inputChanged, _: CacheKey) =>
-      lastOutput(cacheDir / s"assembly-outputs-$scalaVersion") { (_: Unit, previousOutput: Option[File]) =>
-        val outputExists = previousOutput.exists(_.exists())
-        (inputChanged, outputExists) match {
-          case (false, true) =>
-            log.info("Assembly jar up to date: " + previousOutput.get.toPath)
-            previousOutput.get
-          case (true, true) =>
-            log.debug("Building assembly jar due to changed inputs...")
-            IO.delete(previousOutput.get)
-            buildAssembly()
-          case (_, _) =>
-            log.debug("Building assembly jar due to missing output...")
-            buildAssembly()
-        }
-      }
-    }
-    cacheBlock(inputs)(Unit)
-  }
 
   private[sbtassembly] def createJar(
       output: File,
@@ -589,19 +564,9 @@ object Assembly {
         case JarManifest(mergeManifest)     => Package.mergeManifests(manifest, mergeManifest)
         case MainClass(mainClassName)       => main.put(JAttributes.Name.MAIN_CLASS, mainClassName)
         case ManifestAttributes(attrs @ _*) => main ++= attrs
+        case FixedTimestamp(value)          => time = value 
         case _                              =>
-          // use reflection for compatibility
-          if (option.getClass.getName == "sbt.Package$FixedTimestamp") {
-            try
-              // https://github.com/sbt/sbt/blob/59130d4703e9238e/main-actions/src/main/scala/sbt/Package.scala#L50
-              time = option.asInstanceOf[{ def value: Option[Long] }].value
-            catch {
-              case e: Throwable =>
-                log.debug(e.toString)
-            }
-          } else {
-            log.warn("Ignored unknown package option " + option)
-          }
+          log.warn("Ignored unknown package option " + option)
       }
     if (!main.contains(JAttributes.Name.MANIFEST_VERSION)) main.put(JAttributes.Name.MANIFEST_VERSION, "1.0")
     manifest -> time

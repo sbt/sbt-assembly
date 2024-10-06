@@ -10,7 +10,7 @@ lazy val testmerge = (project in file(".")).
     version := "0.1",
     assembly / assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
-      IO.withTemporaryDirectory { dir ⇒
+      IO.withTemporaryDirectory { dir =>
         IO.unzip(crossTarget.value / "foo.jar", dir)
         mustContain(dir / "some-other-target", Seq("I should exist"))
         mustContain(dir / "sbtassembly" / "file.txt", Seq("test file"))

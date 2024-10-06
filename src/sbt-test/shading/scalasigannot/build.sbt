@@ -9,6 +9,7 @@ ThisBuild / crossScalaVersions := List(scala212, scala213)
 
 
 val shadingSettings: Seq[Def.Setting[_]] = Seq(
+  exportJars := false,
   assembly / assemblyShadeRules := Seq(
     ShadeRule.rename(
       "to.be.shaded.**" -> "shade.@1"
@@ -18,7 +19,7 @@ val shadingSettings: Seq[Def.Setting[_]] = Seq(
   assembly / assemblyExcludedJars := {
     val cp = (assembly / fullClasspath).value
     cp.filterNot {p =>
-      p.data.getName.startsWith("tobeshaded")
+      p.data.toString.contains("tobeshaded")
     }
   },
 
@@ -39,10 +40,10 @@ lazy val fatLib = project.in(file("fatlib"))
     Seq(
       name := "fatlib",
       (Compile / unmanagedJars) := {
-        val tbs: File = (toBeShaded / Compile / packageBin).value
+        val tbs = (toBeShaded / Compile / packageBin).value
         //Seq(sbt.internal.util.Attributed.blank[java.io.File](tbs))
 
-        Seq(Attributed.blank[java.io.File](tbs))
+        Seq(Attributed.blank(tbs))
       }
     )
   )
@@ -62,8 +63,9 @@ lazy val root = project.in(file("."))
         //Seq(sbt.internal.util.Attributed.blank[java.io.File](tbs))
 
         val x = (fatLib / Compile / assembly).value
-        Seq(Attributed.blank[java.io.File](x))
-      }
+        Seq(Attributed.blank(x))
+      },
+      fgRun / aggregate := false,
     )
   )
   .aggregate(fatLib, toBeShaded)

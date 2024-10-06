@@ -1,3 +1,4 @@
+exportJars := false
 lazy val scala212 = "2.12.18"
 lazy val scala213 = "2.13.11"
 
@@ -12,11 +13,11 @@ lazy val testkeep = (project in file(".")).
       ShadeRule.keep("keep.**").inProject
     ),
     TaskKey[Unit]("check") := {
-      IO.withTemporaryDirectory { dir ⇒
+      IO.withTemporaryDirectory { dir =>
         IO.unzip(crossTarget.value / "foo.jar", dir)
         mustNotExist(dir / "removed" / "ShadeClass.class")
         mustNotExist(dir / "removed" / "ShadePackage.class")
-        mustExist(dir / "keep" / "Keeped.class")
+        mustExist(dir / "keep" / "Kept.class")
       }
     })
 

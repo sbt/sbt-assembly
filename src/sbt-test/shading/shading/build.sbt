@@ -1,3 +1,5 @@
+exportJars := false
+
 lazy val testshade = (project in file(".")).
   settings(
     version := "0.1",
@@ -12,7 +14,7 @@ lazy val testshade = (project in file(".")).
     ),
     // logLevel in assembly := Level.Debug,
     TaskKey[Unit]("check") := {
-      IO.withTemporaryDirectory { dir ⇒
+      IO.withTemporaryDirectory { dir =>
         IO.unzip(crossTarget.value / "foo.jar", dir)
         mustNotExist(dir / "remove" / "Removed.class")
         mustNotExist(dir / "org" / "apache" / "commons" / "io" / "ByteOrderMark.class")
@@ -21,7 +23,7 @@ lazy val testshade = (project in file(".")).
         mustExist(dir / "shadeio" / "ByteOrderMark.class")
       }
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))
-      val out = (process!!)
+      val out = process.!!
       if (out.trim != "hello shadeio.filefilter.AgeFileFilter") sys.error("unexpected output: " + out)
       ()
     })

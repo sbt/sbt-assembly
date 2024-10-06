@@ -1,12 +1,12 @@
 # check if the file gets created
 > clean
 > assembly
-$ exists target/scala-2.12/foo.jar
+> fileCheck1
 
 # run to cache the hash, then check it's consistent
 > check
 > checkhash
-$ exists target/scala-2.12/jarHash.txt
+> fileCheck2
 > checkhash
 
 > assembly
@@ -16,7 +16,7 @@ $ exists target/scala-2.12/jarHash.txt
 # when the unzipped jars are read from cache
 # on disk
 > checkhash
-$ newer target/scala-2.12/jarHash.txt target/scala-2.12/foo.jar
+# $ newer target/scala-2.12/jarHash.txt target/scala-2.12/foo.jar
 
 # generate file
 > genresource

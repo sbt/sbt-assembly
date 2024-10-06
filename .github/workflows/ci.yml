@@ -14,16 +14,24 @@ jobs:
         include:
           - os: ubuntu-latest
             java: 8
+            distribution: zulu
+            jobtype: 1
+          - os: ubuntu-latest
+            java: 8
             distribution: temurin
+            jobtype: 2
           - os: ubuntu-latest
             java: 21
             distribution: temurin
+            jobtype: 1
           - os: ubuntu-latest
             java: 24-ea
             distribution: temurin
+            jobtype: 1
           - os: windows-latest
             java: 11
             distribution: temurin
+            jobtype: 1
     env:
       # define Java options for both official sbt and sbt-extras
       JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
@@ -36,7 +44,13 @@ jobs:
         distribution: "${{ matrix.distribution }}"
         java-version: "${{ matrix.java }}"
         cache: sbt
-    - name: Build and test
+    - name: Build and test (sbt 1.x)
+      if: ${{ matrix.jobtype == 1 }}
       shell: bash
       run: |
-        sbt -v clean scripted
+        sbt -v ++2.12.x scripted
+    - name: Build and test (sbt 2.x)
+      if: ${{ matrix.jobtype == 2 }}
+      shell: bash
+      run: |
+        sbt -v ++3.x scripted

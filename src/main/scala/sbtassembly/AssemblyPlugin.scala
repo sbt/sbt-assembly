@@ -2,7 +2,8 @@ package sbtassembly
 
 import com.eed3si9n.jarjarabrams
 import sbt.Keys._
-import sbt._
+import sbt.{ given, * }
+import PluginCompat.*
 
 object AssemblyPlugin extends sbt.AutoPlugin {
   override def requires = plugins.JvmPlugin
@@ -43,18 +44,18 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   override lazy val projectSettings: Seq[Def.Setting[_]] = assemblySettings
 
   // Compile-specific defaults
-  lazy val assemblySettings: Seq[sbt.Def.Setting[_]] = baseAssemblySettings ++ Seq(
+  def assemblySettings: Seq[sbt.Def.Setting[_]] = baseAssemblySettings ++ Seq(
     assembly / packageOptions := {
-      val os = (packageOptions in (Compile, packageBin)).value
+      val os = (Compile / packageBin / packageOptions).value
       (assembly / mainClass).value map { s =>
-        Package.MainClass(s) +: (os filterNot { _.isInstanceOf[Package.MainClass] })
+        Package.MainClass(s) +: (os filterNot { _.isInstanceOf[MainClass] })
       } getOrElse os
     },
-    assemblyPackageScala / packageOptions := (packageOptions in (Compile, packageBin)).value,
-    assemblyPackageDependency / packageOptions := (packageOptions in (Compile, packageBin)).value
+    assemblyPackageScala / packageOptions := (Compile / packageBin / packageOptions).value,
+    assemblyPackageDependency / packageOptions := (Compile / packageBin / packageOptions).value
   )
 
-  lazy val baseAssemblySettings: Seq[sbt.Def.Setting[_]] = (Seq(
+  def baseAssemblySettings: Seq[sbt.Def.Setting[_]] = (Seq(
     assembly := Assembly.assemblyTask(assembly).value,
     assemblyPackageScala := Assembly.assemblyTask(assemblyPackageScala).value,
     assemblyPackageDependency := Assembly.assemblyTask(assemblyPackageDependency).value,
@@ -68,7 +69,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assembly / packageOptions := {
       val os = (packageBin / packageOptions).value
       (assembly / mainClass).value map { s =>
-        Package.MainClass(s) +: (os filterNot { _.isInstanceOf[Package.MainClass] })
+        Package.MainClass(s) +: (os filterNot { _.isInstanceOf[MainClass] })
       } getOrElse os
     },
     assemblyPackageScala / packageOptions := (packageBin / packageOptions).value,
@@ -107,6 +108,10 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   def assemblyOptionSettings: Seq[Setting[_]] = Seq(
     assemblyOption := {
       val s = streams.value
+      val sr = assemblyShadeRules.value
+      if (sr.nonEmpty && exportJars.value) {
+        sys.error("exportJars must be set to false for the shading to work")
+      }
       AssemblyOption()
         .withIncludeBin((packageBin / assembleArtifact).value)
         .withIncludeScala((assemblyPackageScala / assembleArtifact).value)
@@ -117,7 +122,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withAppendContentHash(assemblyAppendContentHash.value)
         .withPrependShellScript(assemblyPrependShellScript.value)
         .withMaxHashLength(assemblyMaxHashLength.?.value)
-        .withShadeRules(assemblyShadeRules.value)
+        .withShadeRules(sr)
         .withScalaVersion(scalaVersion.value)
         .withLevel(logLevel.?.value.getOrElse(Level.Info))
         .withRepeatableBuild(assemblyRepeatableBuild.value)

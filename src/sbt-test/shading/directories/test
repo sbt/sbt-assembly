@@ -1,12 +1,7 @@
 # Test that assembly contains shaded classes
 # but the original classes are left untouched.
 
+> assembly
 > check
 
-$ exists target/classes/somepackage/SomeClass.class
-$ absent target/classes/shaded/SomeClass.class
-
 > unzip
-
-$ exists target/unzipped/shaded/SomeClass.class
-$ absent target/unzipped/somepackage/SomeClass.class

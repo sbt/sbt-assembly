@@ -1,3 +1,4 @@
+exportJars := false
 scalaVersion := scala212
 
 lazy val scala212 = "2.12.18"
