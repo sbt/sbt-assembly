@@ -14,7 +14,7 @@ lazy val testmerge = (project in file(".")).settings(
   version := "0.1",
   assembly / assemblyJarName := "foo.jar",
   TaskKey[Unit]("check") := {
-    IO.withTemporaryDirectory { dir ⇒
+    IO.withTemporaryDirectory { dir =>
       IO.unzip(crossTarget.value / "foo.jar", dir)
       mustContain(dir / "b", Seq("a", "b", "c", "d"))
       mustContain(dir / "a", Seq("e"))

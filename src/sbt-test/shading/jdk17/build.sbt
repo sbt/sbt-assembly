@@ -1,3 +1,4 @@
+exportJars := false
 scalaVersion := "2.13.12"
 
 assembly / assemblyShadeRules := Seq(

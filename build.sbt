@@ -6,22 +6,35 @@ ThisBuild / version := {
 
 ThisBuild / organization := "com.eed3si9n"
 
-def scala212 = "2.12.18"
-ThisBuild / crossScalaVersions := Seq(scala212)
-ThisBuild / scalaVersion := scala212
+def scala212 = "2.12.20"
+def scala3 = "3.3.4"
+ThisBuild / crossScalaVersions := Seq(scala212, scala3)
+ThisBuild / scalaVersion := scala3
 
 lazy val jarjar = "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.14.0"
 
 lazy val root = (project in file("."))
-  .enablePlugins(SbtPlugin, ContrabandPlugin, SbtPlugin)
-  .settings(pomConsistency2021DraftSettings)
+  .enablePlugins(SbtPlugin, ContrabandPlugin)
   .settings(nocomma {
     name := "sbt-assembly"
-    scalacOptions := Seq("-deprecation", "-unchecked", "-Dscalac.patmat.analysisBudget=1024", "-Xfuture")
-    libraryDependencies += jarjar
+    scalacOptions := Seq(
+      "-Xsource:3",
+      "-deprecation",
+      "-unchecked",
+      "-Dscalac.patmat.analysisBudget=1024",
+      "-Xfuture",
+    )
+    libraryDependencies += jarjar.cross(CrossVersion.for3Use2_13)
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {
-        case "2.12" => "1.2.8"
+        case "2.12" => "1.5.8"
+        case _      => "2.0.0-M2"
+      }
+    }
+    scriptedSbt := {
+      scalaBinaryVersion.value match {
+        case "2.12" => "1.10.2"
+        case _      => "2.0.0-M2"
       }
     }
     Compile / generateContrabands / sourceManaged := baseDirectory.value / "src" / "main" / "scala"
@@ -29,7 +42,6 @@ lazy val root = (project in file("."))
       Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
     }
     scriptedBufferLog := false
-    scriptedSbt := "1.9.7"
   })
 
 ThisBuild / scmInfo := Some(
@@ -56,30 +68,3 @@ ThisBuild / publishTo := {
   else Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
 ThisBuild / publishMavenStyle := true
-
-// See https://eed3si9n.com/pom-consistency-for-sbt-plugins
-lazy val pomConsistency2021Draft = settingKey[Boolean]("experimental")
-
-/**
- * this is an unofficial experiment to re-publish plugins with better Maven compatibility
- */
-def pomConsistency2021DraftSettings: Seq[Setting[_]] = Seq(
-  pomConsistency2021Draft := Set("true", "1")(sys.env.get("POM_CONSISTENCY").getOrElse("false")),
-  moduleName := {
-    if (pomConsistency2021Draft.value)
-      sbtPluginModuleName2021Draft(moduleName.value,
-        (pluginCrossBuild / sbtBinaryVersion).value)
-    else moduleName.value
-  },
-  projectID := {
-    if (pomConsistency2021Draft.value) sbtPluginExtra2021Draft(projectID.value)
-    else projectID.value
-  },
-)
-
-def sbtPluginModuleName2021Draft(n: String, sbtV: String): String =
-  s"""${n}_sbt${if (sbtV == "1.0") "1" else if (sbtV == "2.0") "2" else sbtV}"""
-
-def sbtPluginExtra2021Draft(m: ModuleID): ModuleID =
-  m.withExtraAttributes(Map.empty)
-   .withCrossVersion(CrossVersion.binary)

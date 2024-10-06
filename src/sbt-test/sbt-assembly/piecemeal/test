@@ -1,17 +1,17 @@
 # check if the file gets created
 > assembly
-$ exists target/scala-2.12/foo-assembly-0.1.jar
+> fileCheck1
 
 # try running this JAR. this should fail
 -> check1
 
 # check if the file gets created
 > assemblyPackageDependency
-$ exists target/scala-2.12/foo-assembly-0.1-deps.jar
+> fileCheck2
 
 # check if the file gets created
 > assemblyPackageScala
-$ exists target/scala-2.12/scala-library-2.12.18-assembly.jar
+> fileCheck3
 
 # check if it says hello
 > check2

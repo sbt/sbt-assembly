@@ -23,7 +23,7 @@ lazy val testmerge = (project in file(".")).
     version := "0.1",
     assembly / assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
-      IO.withTemporaryDirectory { dir ⇒
+      IO.withTemporaryDirectory { dir =>
         IO.unzip(crossTarget.value / "foo.jar", dir)
         mustContain(dir / "sbtassembly", Seq("reversed"))
       }
@@ -39,4 +39,8 @@ def mustContain(f: File, l: Seq[String]): Unit = {
 
 TaskKey[Unit]("copy-preserve-last-modified") := {
   IO.copy(Seq((crossTarget.value / "foo.jar") -> (crossTarget.value / "foo-1.jar")), true, true, true)
+}
+
+TaskKey[Unit]("fileCheck1") := {
+  assert((crossTarget.value / "foo.jar").exists())
 }

@@ -1,6 +1,6 @@
-ThisBuild / version := "0.1"
-ThisBuild / scalaVersion := "2.12.18"
-ThisBuild / assemblyMergeStrategy := {
+version := "0.1"
+scalaVersion := "2.12.18"
+assemblyMergeStrategy := {
   case "a" => MergeStrategy.concat
   case "b" => MergeStrategy.first
   case "c" => MergeStrategy.last
@@ -9,15 +9,17 @@ ThisBuild / assemblyMergeStrategy := {
   case "f" => MergeStrategy.discard
   case PathList("x", "y") => MergeStrategy.discard
   case x   =>
-    val oldStrategy = (ThisBuild / assemblyMergeStrategy).value
+    val oldStrategy = assemblyMergeStrategy.value
     oldStrategy(x)
 }
+name := "foo"
+exportJars := true
 
 lazy val testmerge = (project in file("."))
   .settings(
     assembly / assemblyJarName := "foo.jar",
     TaskKey[Unit]("check") := {
-      IO.withTemporaryDirectory { dir ⇒
+      IO.withTemporaryDirectory { dir =>
         IO.unzip(crossTarget.value / "foo.jar", dir)
         mustContain(dir / "a", Seq("1", "2", "1", "3"))
         mustContain(dir / "b", Seq("1"))
@@ -25,9 +27,9 @@ lazy val testmerge = (project in file("."))
         mustContain(dir / "d", Seq("1", "2", "3"))
         mustContain(dir / "e", Seq("1"))
         mustNotExist(dir / "f")
-        mustContain(dir / "README_foo", Seq("resources"))
+        mustContain(dir / "README_foo-0.1", Seq("resources"))
         mustContain(dir / "README_1", Seq("1"))
-        mustContain(dir / "LICENSE_foo", Seq("resources"))
+        mustContain(dir / "LICENSE_foo-0.1", Seq("resources"))
         mustContain(dir / "LICENSE" / "a", Seq("1"))
         // 80f5a06 -- don't rename License.class
         mustExist(dir / "com" / "example" / "License.class")

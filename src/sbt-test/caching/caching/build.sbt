@@ -19,13 +19,13 @@ lazy val root = (project in file(".")).
     },
     TaskKey[Unit]("check") := {
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))
-      val out = (process!!)
+      val out = process.!!
       if (out.trim != "hello") sys.error("unexpected output: " + out)
       ()
     },
     TaskKey[Unit]("checkfoo") := {
       val process = sys.process.Process("java", Seq("-jar", (crossTarget.value / "foo.jar").toString))
-      val out = (process!!)
+      val out = process.!!
       if (out.trim != "foo.txt") sys.error("unexpected output: " + out)
       ()
     },
@@ -44,3 +44,11 @@ lazy val root = (project in file(".")).
       ()
     }
   )
+
+TaskKey[Unit]("fileCheck1") := {
+  assert((crossTarget.value / "foo.jar").exists())
+}
+
+TaskKey[Unit]("fileCheck2") := {
+  assert((crossTarget.value / "jarHash.txt").exists())
+}

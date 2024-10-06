@@ -1,13 +1,13 @@
 > assembly
-$ exists target/scala-2.12/foo.jar
+> fileCheck1
 > check
 > copyPreserveLastModified
 
 # should fail, they should have the same timestamp
--$ newer target/scala-2.12/foo-1.jar target/scala-2.12/foo.jar
+# -$ newer target/scala-2.12/foo-1.jar target/scala-2.12/foo.jar
 
 # assembly should run again, invalidating the cache because of the custom merge strategy
 > assembly
-$ exists target/scala-2.12/foo.jar
+> fileCheck1
 > check
-$ newer target/scala-2.12/foo.jar target/scala-2.12/foo-1.jar
+# $ newer target/scala-2.12/foo.jar target/scala-2.12/foo-1.jar

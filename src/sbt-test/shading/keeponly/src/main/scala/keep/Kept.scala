@@ -1,3 +1,3 @@
 package keep
 
-class Keeped
+class Kept
