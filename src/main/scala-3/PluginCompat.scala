@@ -5,10 +5,11 @@ import java.nio.file.{ Path => NioPath }
 import java.util.jar.{ Manifest => JManifest }
 import sbt.*
 import sbt.librarymanagement.ModuleID
-import xsbti.{ FileConverter, HashedVirtualFileRef }
+import xsbti.{ FileConverter, HashedVirtualFileRef, VirtualFile }
 
 object PluginCompat:
-  type Out = HashedVirtualFileRef
+  type FileRef = HashedVirtualFileRef
+  type Out = VirtualFile
   type JarManifest = PackageOption.JarManifest
   type MainClass = PackageOption.MainClass
   type ManifestAttributes = PackageOption.ManifestAttributes
@@ -24,7 +25,7 @@ object PluginCompat:
     conv.toPath(a.data)
   inline def toFile(a: Attributed[HashedVirtualFileRef])(implicit conv: FileConverter): File =
     toNioPath(a).toFile()
-  def toOutput(x: File)(implicit conv: FileConverter): HashedVirtualFileRef =
+  def toOutput(x: File)(implicit conv: FileConverter): VirtualFile =
     conv.toVirtualFile(x.toPath())
   def toNioPaths(cp: Seq[Attributed[HashedVirtualFileRef]])(implicit conv: FileConverter): Vector[NioPath] =
     cp.map(toNioPath).toVector
