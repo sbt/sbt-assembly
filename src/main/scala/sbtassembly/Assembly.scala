@@ -170,7 +170,7 @@ object Assembly {
     val jarName: String = s"$name${if (version.nonEmpty) "-" else ""}$version.jar"
   }
 
-  def assemblyTask(key: TaskKey[PluginCompat.Out]): Initialize[Task[PluginCompat.Out]] = Def.task {
+  def assemblyTask(key: TaskKey[PluginCompat.FileRef]): Initialize[Task[PluginCompat.Out]] = Def.task {
     val t = (key / test).value
     val s = (key / streams).value
     val conv = fileConverter.value

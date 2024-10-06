@@ -10,6 +10,7 @@ import sbt.util.Tracked.{ inputChanged, lastOutput }
 import xsbti.FileConverter
 
 private[sbtassembly] object PluginCompat {
+  type FileRef = java.io.File
   type Out = java.io.File
   type MainClass = sbt.Package.MainClass
 
