@@ -8,7 +8,6 @@ import sbt.internal.inc.classpath.ClasspathUtil
 import sbt.io.{ DirectoryFilter => _, IO => _, Path => _, Using }
 import sbt.util.{ FilesInfo, Level, ModifiedFileInfo }
 import sbt.{ File, Logger, _ }
-import sbt.Tags.Tag
 import CacheImplicits._
 import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, _ }
 
@@ -37,8 +36,6 @@ object Assembly {
   val newLine: String = "\n"
   val indent: String = " " * 2
   val newLineIndented: String = newLine + indent
-
-  val assemblyTag = Tag("assembly")
 
   private[sbtassembly] val scalaPre213Libraries = Vector(
     "scala-actors",
@@ -169,23 +166,6 @@ object Assembly {
   case class ModuleCoordinate(organization: String = "", name: String, version: String = "") {
     val jarName: String = s"$name${if (version.nonEmpty) "-" else ""}$version.jar"
   }
-
-  def assemblyTask(key: TaskKey[PluginCompat.Out]): Initialize[Task[PluginCompat.Out]] = Def.task {
-    val t = (key / test).value
-    val s = (key / streams).value
-    val conv = fileConverter.value
-    assemble(
-      (key / assemblyJarName).value.replaceAll(".jar", ""),
-      (key / assemblyOutputPath).value,
-      (assembly / fullClasspath).value,
-      (assembly / externalDependencyClasspath).value,
-      (key / assemblyOption).value,
-      (key / packageOptions).value,
-      conv,
-      s.cacheDirectory,
-      s.log
-    )
-  }.tag(assemblyTag)
 
   /**
    * Builds an assembly jar

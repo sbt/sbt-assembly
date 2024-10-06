@@ -4,15 +4,14 @@ import com.eed3si9n.jarjarabrams
 import sbt.Keys.*
 import sbt.*
 
-trait AssemblyKeys {
-  lazy val assembly                  = taskKey[PluginCompat.Out]("Builds a deployable über JAR")
+trait AssemblyKeys extends PluginCompat.AssemblyKeys0 {
+  lazy val assembly                  = taskKey[PluginCompat.FileRef]("Builds a deployable über JAR")
   lazy val assembleArtifact          = settingKey[Boolean]("Enables (true) or disables (false) assembling an artifact")
   lazy val assemblyOption            = taskKey[AssemblyOption]("Configuration for making a deployable über JAR")
-  lazy val assemblyPackageScala      = taskKey[PluginCompat.Out]("Produces the Scala artifact")
-  lazy val assemblyPackageDependency = taskKey[PluginCompat.Out]("Produces the dependency artifact")
+  lazy val assemblyPackageScala      = taskKey[PluginCompat.FileRef]("Produces the Scala artifact")
+  lazy val assemblyPackageDependency = taskKey[PluginCompat.FileRef]("Produces the dependency artifact")
   lazy val assemblyJarName           = taskKey[String]("name of the über jar")
   lazy val assemblyDefaultJarName    = taskKey[String]("default name of the über jar")
-  lazy val assemblyOutputPath        = taskKey[File]("output path of the über jar")
   lazy val assemblyExcludedJars      = taskKey[Classpath]("list of excluded jars")
   lazy val assemblyMergeStrategy     = settingKey[String => MergeStrategy]("mapping from archive member path to merge strategy")
   lazy val assemblyShadeRules        = settingKey[Seq[jarjarabrams.ShadeRule]]("shading rules backed by jarjar")
@@ -22,6 +21,7 @@ trait AssemblyKeys {
   lazy val assemblyPrependShellScript = settingKey[Option[Seq[String]]]("A launch script to prepend to the über JAR")
   lazy val assemblyRepeatableBuild   = settingKey[Boolean]("If (true), builds the jar with a consistent hash (given the same inputs/assembly configuration) so it can be cached, but loses parallelism optimization. " +
                                                                        "If (false), builds the jar faster via parallelization, but loses hash consistency, and hence, cannot be cached")
+  lazy val assemblyMetaBuildHash     = taskKey[String]("Hash of metabuild")
 }
 
 object AssemblyKeys extends AssemblyKeys
