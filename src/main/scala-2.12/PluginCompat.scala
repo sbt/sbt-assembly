@@ -3,6 +3,8 @@ package sbtassembly
 import java.nio.file.{ Path => NioPath }
 import java.util.jar.{ Manifest => JManifest }
 import sbt.*
+import sbt.Keys.*
+import sbt.Tags.Tag
 import sbt.internal.util.HNil
 import sbt.internal.util.Types.:+:
 import sbt.util.FileInfo.lastModified
@@ -10,6 +12,7 @@ import sbt.util.Tracked.{ inputChanged, lastOutput }
 import xsbti.FileConverter
 
 private[sbtassembly] object PluginCompat {
+  type FileRef = java.io.File
   type Out = java.io.File
   type MainClass = sbt.Package.MainClass
 
@@ -22,12 +25,46 @@ private[sbtassembly] object PluginCompat {
     a.data.toPath()
   def toFile(a: Attributed[File])(implicit conv: FileConverter): File =
     a.data
-  def toOutput(x: File)(implicit conv: FileConverter): File =
-    x
+  def toFile(x: File): File = x
+  def toOutput(x: File)(implicit conv: FileConverter): File = x
   def toNioPaths(cp: Seq[Attributed[File]])(implicit conv: FileConverter): Vector[NioPath] =
     cp.map(_.data.toPath()).toVector
   def toFiles(cp: Seq[Attributed[File]])(implicit conv: FileConverter): Vector[File] =
     cp.map(_.data).toVector
+
+  trait AssemblyKeys0 {
+    lazy val assemblyOutputPath = taskKey[File]("output path of the über jar")
+  }
+
+  val assemblyTag = Tag("assembly")
+  def assemblyTask(key: TaskKey[Out])(
+    f: (
+      String,
+      File,
+      Classpath,
+      Classpath,
+      AssemblyOption,
+      Seq[PackageOption],
+      FileConverter,
+      File,
+      Logger
+    ) => Out
+  ): Def.Initialize[Task[Out]] = Def.task {
+    val t = (key / Keys.test).value
+    val s = (key / Keys.streams).value
+    val conv = fileConverter.value
+    f(
+      (key / AssemblyKeys.assemblyJarName).value.replaceAll(".jar", ""),
+      (key / AssemblyKeys.assemblyOutputPath).value,
+      (AssemblyKeys.assembly / fullClasspath).value,
+      (AssemblyKeys.assembly / externalDependencyClasspath).value,
+      (key / AssemblyKeys.assemblyOption).value,
+      (key / Keys.packageOptions).value,
+      conv,
+      s.cacheDirectory,
+      s.log
+    )
+  }.tag(assemblyTag)
 
   type CacheKey = FilesInfo[ModifiedFileInfo] :+:
     Map[String, (Boolean, String)] :+: // map of target paths that matched a merge strategy

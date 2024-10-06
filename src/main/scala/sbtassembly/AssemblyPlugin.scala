@@ -38,7 +38,22 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyPrependShellScript := None,
     assemblyCacheOutput := true,
     assemblyRepeatableBuild := true,
-    concurrentRestrictions += Tags.limit(Assembly.assemblyTag, 1)
+    concurrentRestrictions += Tags.limit(PluginCompat.assemblyTag, 1),
+    assemblyMetaBuildHash := {
+      val extracted = Project.extract(state.value)
+      val metaBuildClasses = (for {
+        unit <- extracted.structure.units.values
+        sbtFiles <- unit.unit.definitions.dslDefinitions.sbtFiles
+        generated <- sbtFiles.generated
+      } yield PluginCompat.toFile(generated)).toVector.distinct
+      val metaBuildClasspath = (for {
+        unit <- extracted.structure.units.values
+        cp <- unit.classpath
+      } yield PluginCompat.toFile(cp)).toVector.distinct
+      val hashes = (metaBuildClasses ++ metaBuildClasspath)
+        .map(Assembly.hash).sorted
+      hashes.mkString("")
+    },
   )
 
   override lazy val projectSettings: Seq[Def.Setting[_]] = assemblySettings
@@ -56,9 +71,9 @@ object AssemblyPlugin extends sbt.AutoPlugin {
   )
 
   def baseAssemblySettings: Seq[sbt.Def.Setting[_]] = (Seq(
-    assembly := Assembly.assemblyTask(assembly).value,
-    assemblyPackageScala := Assembly.assemblyTask(assemblyPackageScala).value,
-    assemblyPackageDependency := Assembly.assemblyTask(assemblyPackageDependency).value,
+    assembly := PluginCompat.assemblyTask(assembly)(Assembly.assemble).value,
+    assemblyPackageScala := PluginCompat.assemblyTask(assemblyPackageScala)(Assembly.assemble).value,
+    assemblyPackageDependency := PluginCompat.assemblyTask(assemblyPackageDependency)(Assembly.assemble).value,
 
     // test
     assembly / test := {},
@@ -116,7 +131,6 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withIncludeBin((packageBin / assembleArtifact).value)
         .withIncludeScala((assemblyPackageScala / assembleArtifact).value)
         .withIncludeDependency((assemblyPackageDependency / assembleArtifact).value)
-        .withMergeStrategy(assemblyMergeStrategy.value)
         .withExcludedJars(assemblyExcludedJars.value)
         .withCacheOutput(assemblyCacheOutput.value)
         .withAppendContentHash(assemblyAppendContentHash.value)

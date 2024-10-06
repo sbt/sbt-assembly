@@ -52,3 +52,8 @@ TaskKey[Unit]("fileCheck1") := {
 TaskKey[Unit]("fileCheck2") := {
   assert((crossTarget.value / "jarHash.txt").exists())
 }
+
+TaskKey[Unit]("hashCheck") := {
+  val x = assemblyMetaBuildHash.value
+  println(x)
+}
