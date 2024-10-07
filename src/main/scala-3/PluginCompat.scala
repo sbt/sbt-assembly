@@ -21,15 +21,15 @@ object PluginCompat:
   def parseModuleIDStrAttribute(str: String): ModuleID =
     Classpaths.moduleIdJsonKeyFormat.read(str)
 
-  def toNioPath(a: Attributed[HashedVirtualFileRef])(implicit conv: FileConverter): NioPath =
+  def toNioPath(a: Attributed[HashedVirtualFileRef])(using conv: FileConverter): NioPath =
     conv.toPath(a.data)
-  inline def toFile(a: Attributed[HashedVirtualFileRef])(implicit conv: FileConverter): File =
+  inline def toFile(a: Attributed[HashedVirtualFileRef])(using conv: FileConverter): File =
     toNioPath(a).toFile()
-  def toOutput(x: File)(implicit conv: FileConverter): VirtualFile =
+  def toOutput(x: File)(using conv: FileConverter): VirtualFile =
     conv.toVirtualFile(x.toPath())
-  def toNioPaths(cp: Seq[Attributed[HashedVirtualFileRef]])(implicit conv: FileConverter): Vector[NioPath] =
+  def toNioPaths(cp: Seq[Attributed[HashedVirtualFileRef]])(using conv: FileConverter): Vector[NioPath] =
     cp.map(toNioPath).toVector
-  inline def toFiles(cp: Seq[Attributed[HashedVirtualFileRef]])(implicit conv: FileConverter): Vector[File] =
+  inline def toFiles(cp: Seq[Attributed[HashedVirtualFileRef]])(using conv: FileConverter): Vector[File] =
     toNioPaths(cp).map(_.toFile())
 
   object HListFormats
