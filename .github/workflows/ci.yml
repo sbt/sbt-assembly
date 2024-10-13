@@ -44,6 +44,7 @@ jobs:
         distribution: "${{ matrix.distribution }}"
         java-version: "${{ matrix.java }}"
         cache: sbt
+    - uses: sbt/setup-sbt@v1
     - name: Build and test (sbt 1.x)
       if: ${{ matrix.jobtype == 1 }}
       shell: bash
