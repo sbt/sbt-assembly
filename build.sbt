@@ -17,12 +17,21 @@ lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin, ContrabandPlugin)
   .settings(nocomma {
     name := "sbt-assembly"
-    scalacOptions := Seq(
-      "-Xsource:3",
+    scalacOptions ++= {
+      scalaBinaryVersion.value match {
+        case "3" =>
+          Nil
+        case _ =>
+          Seq(
+            "-Xsource:3",
+            "-Xfuture",
+          )
+      }
+    }
+    scalacOptions ++= Seq(
       "-deprecation",
       "-unchecked",
       "-Dscalac.patmat.analysisBudget=1024",
-      "-Xfuture",
     )
     libraryDependencies += jarjar.cross(CrossVersion.for3Use2_13)
     (pluginCrossBuild / sbtVersion) := {
