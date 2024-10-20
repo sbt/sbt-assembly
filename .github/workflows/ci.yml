@@ -15,23 +15,23 @@ jobs:
           - os: ubuntu-latest
             java: 8
             distribution: zulu
-            jobtype: 1
+            jobtype: sbt-1
           - os: ubuntu-latest
             java: 8
             distribution: temurin
-            jobtype: 2
+            jobtype: sbt-2
           - os: ubuntu-latest
             java: 21
             distribution: temurin
-            jobtype: 1
+            jobtype: sbt-1
           - os: ubuntu-latest
             java: 24-ea
             distribution: temurin
-            jobtype: 1
+            jobtype: sbt-1
           - os: windows-latest
             java: 11
             distribution: temurin
-            jobtype: 1
+            jobtype: sbt-1
     env:
       # define Java options for both official sbt and sbt-extras
       JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
@@ -39,19 +39,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Setup JDK
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         distribution: "${{ matrix.distribution }}"
         java-version: "${{ matrix.java }}"
         cache: sbt
     - uses: sbt/setup-sbt@v1
     - name: Build and test (sbt 1.x)
-      if: ${{ matrix.jobtype == 1 }}
+      if: ${{ matrix.jobtype == sbt-1 }}
       shell: bash
       run: |
         sbt -v ++2.12.x scripted
     - name: Build and test (sbt 2.x)
-      if: ${{ matrix.jobtype == 2 }}
+      if: ${{ matrix.jobtype == sbt-2 }}
       shell: bash
       run: |
         sbt -v ++3.x scripted
