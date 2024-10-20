@@ -46,12 +46,12 @@ jobs:
         cache: sbt
     - uses: sbt/setup-sbt@v1
     - name: Build and test (sbt 1.x)
-      if: ${{ matrix.jobtype == sbt-1 }}
+      if: ${{ matrix.jobtype == 'sbt-1' }}
       shell: bash
       run: |
         sbt -v ++2.12.x scripted
     - name: Build and test (sbt 2.x)
-      if: ${{ matrix.jobtype == sbt-2 }}
+      if: ${{ matrix.jobtype == 'sbt-2' }}
       shell: bash
       run: |
         sbt -v ++3.x scripted
