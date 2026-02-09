@@ -8,3 +8,7 @@ project/plugins/target
 project/plugins/project/build.properties
 .idea
 metals.sbt
+
+.vscode
+.cursor
+.metals

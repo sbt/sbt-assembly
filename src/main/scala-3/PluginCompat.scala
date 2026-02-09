@@ -5,33 +5,16 @@ import java.nio.file.{ Path => NioPath }
 import java.util.jar.{ Manifest => JManifest }
 import sbt.*
 import Keys.test
-import sbt.librarymanagement.ModuleID
 import xsbti.{ FileConverter, HashedVirtualFileRef, VirtualFile }
+import sbtcompat.PluginCompat.Out
 
 object PluginCompat:
-  type FileRef = HashedVirtualFileRef
-  type Out = VirtualFile
   type JarManifest = PackageOption.JarManifest
   type MainClass = PackageOption.MainClass
   type ManifestAttributes = PackageOption.ManifestAttributes
   type FixedTimestamp = PackageOption.FixedTimestamp
 
   val CollectionConverters = scala.collection.parallel.CollectionConverters
-
-  val moduleIDStr = Keys.moduleIDStr
-  def parseModuleIDStrAttribute(str: String): ModuleID =
-    Classpaths.moduleIdJsonKeyFormat.read(str)
-
-  def toNioPath(a: Attributed[HashedVirtualFileRef])(using conv: FileConverter): NioPath =
-    conv.toPath(a.data)
-  inline def toFile(a: Attributed[HashedVirtualFileRef])(using conv: FileConverter): File =
-    toNioPath(a).toFile()
-  def toOutput(x: File)(using conv: FileConverter): VirtualFile =
-    conv.toVirtualFile(x.toPath())
-  def toNioPaths(cp: Seq[Attributed[HashedVirtualFileRef]])(using conv: FileConverter): Vector[NioPath] =
-    cp.map(toNioPath).toVector
-  inline def toFiles(cp: Seq[Attributed[HashedVirtualFileRef]])(using conv: FileConverter): Vector[File] =
-    toNioPaths(cp).map(_.toFile())
 
   def baseTestSettings: Seq[sbt.Def.Setting[?]] = Seq(
     AssemblyKeys.assembly / test := TestResult.Empty,
@@ -67,7 +50,7 @@ object PluginCompat:
   ): CacheKey = 0
 
   private[sbtassembly] def cachedAssembly(inputs: CacheKey, cacheDir: File, scalaVersion: String, log: Logger)(
-      buildAssembly: () => PluginCompat.Out
-  ): PluginCompat.Out =
+      buildAssembly: () => Out
+  ): Out =
     buildAssembly()
 end PluginCompat

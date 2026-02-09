@@ -34,6 +34,7 @@ lazy val root = (project in file("."))
       "-Dscalac.patmat.analysisBudget=1024",
     )
     libraryDependencies += jarjar.cross(CrossVersion.for3Use2_13)
+    addSbtPlugin("com.github.sbt" % "sbt2-compat" % "0.1.0-SNAPSHOT")
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.5.8"

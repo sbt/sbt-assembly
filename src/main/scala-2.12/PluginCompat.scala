@@ -11,30 +11,9 @@ import sbt.util.Tracked.{ inputChanged, lastOutput }
 import xsbti.FileConverter
 
 private[sbtassembly] object PluginCompat {
-  type FileRef = java.io.File
-  type Out = java.io.File
   type MainClass = sbt.Package.MainClass
 
   object CollectionConverters
-
-  val moduleIDStr = Keys.moduleID.key
-  def parseModuleIDStrAttribute(m: ModuleID): ModuleID = m
-
-  def toNioPath(a: Attributed[File])(implicit conv: FileConverter): NioPath =
-    a.data.toPath()
-  def toFile(a: Attributed[File])(implicit conv: FileConverter): File =
-    a.data
-  def toOutput(x: File)(implicit conv: FileConverter): File =
-    x
-  def toNioPaths(cp: Seq[Attributed[File]])(implicit conv: FileConverter): Vector[NioPath] =
-    cp.map(_.data.toPath()).toVector
-  def toFiles(cp: Seq[Attributed[File]])(implicit conv: FileConverter): Vector[File] =
-    cp.map(_.data).toVector
-
-  // This adds `Def.uncached(...)`
-  implicit class DefOp(singleton: Def.type) {
-    def uncached[A1](a: A1): A1 = a
-  }
 
   def baseTestSettings: Seq[sbt.Def.Setting[?]] = Seq(
     AssemblyKeys.assembly / test := (()),

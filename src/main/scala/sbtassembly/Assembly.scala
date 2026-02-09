@@ -25,6 +25,7 @@ import scala.collection.JavaConverters._
 import scala.language.postfixOps
 import xsbti.FileConverter
 import PluginCompat.*
+import sbtcompat.PluginCompat.{FileRef, Out, toNioPath, toFile, toOutput, toNioPaths, toFiles, moduleIDStr, parseModuleIDStrAttribute}
 import CollectionConverters.{ given, * }
 
 object Assembly {
@@ -170,7 +171,7 @@ object Assembly {
     val jarName: String = s"$name${if (version.nonEmpty) "-" else ""}$version.jar"
   }
 
-  def assemblyTask(key: TaskKey[PluginCompat.FileRef]): Initialize[Task[PluginCompat.Out]] = Def.task {
+  def assemblyTask(key: TaskKey[FileRef]): Initialize[Task[Out]] = Def.task {
     val t = (key / test).value
     val s = (key / streams).value
     val conv = fileConverter.value
@@ -212,7 +213,7 @@ object Assembly {
       conv: FileConverter,
       cacheDir: File,
       log: Logger
-  ): PluginCompat.Out = {
+  ): Out = {
     def timed[A](level: Level.Value, desc: String)(f: => A): A = {
       log.log(level, desc + " start:")
       val start = Instant.now().toEpochMilli
@@ -286,8 +287,8 @@ object Assembly {
     val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect and shade dependency entries") {
       filteredJars.par.map { jar =>
         val module = jar.metadata
-          .get(PluginCompat.moduleIDStr)
-          .map(PluginCompat.parseModuleIDStrAttribute)
+          .get(moduleIDStr)
+          .map(parseModuleIDStrAttribute)
           .map(m => ModuleCoordinate(m.organization, m.name, m.revision))
           .getOrElse(ModuleCoordinate("", jar.data.name.replaceAll(".jar", ""), ""))
         val jarFile = new JarFile(toFile(jar))
@@ -322,7 +323,7 @@ object Assembly {
         if (mergeStrategy.name == MergeStrategy.rename.name) Option.empty
         else Option(mergeStrategy)
       }
-      val buildAssembly: () => PluginCompat.Out  = () => {
+      val buildAssembly: () => Out  = () => {
         val mergedEntries = timed(Level.Debug, "Merge all conflicting jar entries (including those renamed)") {
           merge(renamedDependencies ++ others, secondPassMergeStrategy, log)
         }

@@ -4,6 +4,7 @@ import com.eed3si9n.jarjarabrams
 import sbt.Keys._
 import sbt.{ given, * }
 import PluginCompat.*
+import sbtcompat.PluginCompat.*
 
 object AssemblyPlugin extends sbt.AutoPlugin {
   override def requires = plugins.JvmPlugin

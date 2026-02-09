@@ -3,20 +3,21 @@ package sbtassembly
 import com.eed3si9n.jarjarabrams
 import sbt.Keys.*
 import sbt.*
+import sbtcompat.PluginCompat.FileRef
 
 trait AssemblyKeys {
   @transient
-  lazy val assembly                  = taskKey[PluginCompat.FileRef]("Builds a deployable über JAR")
+  lazy val assembly                  = taskKey[FileRef]("Builds a deployable über JAR")
   lazy val assembleArtifact          = settingKey[Boolean]("Enables (true) or disables (false) assembling an artifact")
 
   @transient
   lazy val assemblyOption            = taskKey[AssemblyOption]("Configuration for making a deployable über JAR")
 
   @transient
-  lazy val assemblyPackageScala      = taskKey[PluginCompat.FileRef]("Produces the Scala artifact")
+  lazy val assemblyPackageScala      = taskKey[FileRef]("Produces the Scala artifact")
 
   @transient
-  lazy val assemblyPackageDependency = taskKey[PluginCompat.FileRef]("Produces the dependency artifact")
+  lazy val assemblyPackageDependency = taskKey[FileRef]("Produces the dependency artifact")
   lazy val assemblyJarName           = taskKey[String]("name of the über jar")
   lazy val assemblyDefaultJarName    = taskKey[String]("default name of the über jar")
   lazy val assemblyOutputPath        = taskKey[File]("output path of the über jar")
