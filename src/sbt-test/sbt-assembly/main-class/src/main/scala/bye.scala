@@ -1,5 +1,7 @@
 package foo
 
-object Byte extends App {
-  println("bye")
+object Byte {
+  def main(args: Array[String]): Unit = {
+    println("bye")
+  }
 }
