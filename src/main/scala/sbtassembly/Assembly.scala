@@ -253,8 +253,13 @@ object Assembly {
           if (ao.includeBin) Some(jar) else None
       }
     }
-
-    val classShader = shader(ao.shadeRules.filter(_.isApplicableToCompiling), log)
+    val (keepRules, nonKeepRules) = (ao.shadeRules: Seq[ShadeRule]).partition {
+      rule => rule.shadePattern match {
+        case k: ShadePattern.Keep => true
+        case _                    => false
+      }
+    }
+    val classShader = shader(nonKeepRules.filter(_.isApplicableToCompiling), log)
     val classByParentDir: Vector[(NioPath, NioPath)] =
       if (!ao.includeBin) Vector.empty
       else dirs.flatMap { dir0 =>
@@ -278,7 +283,7 @@ object Assembly {
 
     val jarShader = (module: ModuleCoordinate) =>
       shader(
-        ao.shadeRules
+        nonKeepRules
           .filter(rule =>
             rule.isApplicableToAll ||
               rule.isApplicableTo(
@@ -310,6 +315,7 @@ object Assembly {
           }
       }.unzip
     }
+
     try {
       val (mappingsToRename, others) = timed(Level.Debug, "Collect renames") {
         (classMappings ++ jarFileEntries.flatten)
@@ -338,13 +344,16 @@ object Assembly {
         timed(Level.Debug, "Finding remaining conflicts that were not merged") {
           reportConflictsMissedByTheMerge(mergedEntries, log)
         }
+        val keptEntries = timed(Level.Debug, "Applying keep rules") {
+          val entries = mergedEntries.flatMap(_.entries)
+          if (keepRules.isEmpty) entries
+          else keepShader(keepRules, log, entries)
+        }
         val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
           if (ao.repeatableBuild) // we need the jars in a specific order to have a consistent hash
-            mergedEntries.flatMap(_.entries)
-              .seq.sortBy(_.target)
+            keptEntries.seq.sortBy(_.target)
           else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
-            mergedEntries.flatMap(_.entries)
-              .par.toVector
+            keptEntries.par.toVector
         }
         val localTime = timestamp
           .map(t => t - java.util.TimeZone.getDefault.getOffset(t))
@@ -521,6 +530,44 @@ object Assembly {
         }
       }
     }
+
+  private[sbtassembly] def keepShader(keepRules: Seq[ShadeRule], log: Logger, entries: Seq[JarEntry]): Seq[JarEntry] = {
+    import com.eed3si9n.jarjar.{ JJProcessor, Keep }
+    import com.eed3si9n.jarjar.util.EntryStruct
+    val jjRules = keepRules.flatMap { rule =>
+      rule.shadePattern match {
+        case ShadePattern.Keep(xs) =>
+          xs.map { x =>
+            val jRule = new Keep()
+            jRule.setPattern(x)
+            jRule
+          }
+        case _ => Nil
+      }
+    }
+    val proc = new JJProcessor(jjRules, true, true, null)
+    val entryStructs = entries.map({ entry =>
+      val stream = entry.stream()
+      val entryStruct = new EntryStruct()
+      val mapping = entry.target
+      entryStruct.name = if (mapping.contains('\\')) mapping.replace('\\', '/') else mapping
+      entryStruct.data = Streamable.bytes(stream)
+      entryStruct.time = -1
+      entryStruct.skipTransform = false
+      stream.close()
+      proc.process(entryStruct)
+      entryStruct
+    })
+    val itemsToExclude = proc.getExcludes
+    log.debug(s"items to exclude: ${itemsToExclude.size}")
+    entryStructs
+      .filterNot(entry => itemsToExclude.contains(entry.name))
+      .map(entryStruct => {
+        val mapping = entryStruct.name
+        val name = if (mapping.contains('/')) mapping.replace('/', '\\') else mapping
+        JarEntry(name, () => new ByteArrayInputStream(entryStruct.data))
+      })
+  }
 
   private[sbtassembly] def createJar(
       output: File,
