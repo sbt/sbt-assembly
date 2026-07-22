@@ -11,7 +11,7 @@ def scala3 = "3.8.4"
 ThisBuild / crossScalaVersions := Seq(scala212, scala3)
 ThisBuild / scalaVersion := scala3
 
-lazy val jarjar = "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.14.1"
+lazy val jarjar = "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.17.0"
 
 lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin, ContrabandPlugin)
@@ -23,6 +23,7 @@ lazy val root = (project in file("."))
           Nil
         case _ =>
           Seq(
+            "-release:8",
             "-Xsource:3",
             "-Xfuture",
           )
@@ -33,7 +34,7 @@ lazy val root = (project in file("."))
       "-unchecked",
       "-Dscalac.patmat.analysisBudget=1024",
     )
-    libraryDependencies += jarjar.cross(CrossVersion.for3Use2_13)
+    libraryDependencies += jarjar
     addSbtPlugin("com.github.sbt" % "sbt2-compat" % "0.1.0")
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {
@@ -44,7 +45,7 @@ lazy val root = (project in file("."))
     scriptedSbt := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.10.7"
-        case _      => "2.0.0"
+        case _      => "2.0.3"
       }
     }
     Compile / generateContrabands / sourceManaged := baseDirectory.value / "src" / "main" / "scala"
