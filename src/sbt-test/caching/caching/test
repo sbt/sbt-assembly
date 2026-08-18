@@ -12,6 +12,15 @@ $ exists target/**/jarHash.txt
 > assembly
 > check
 
+> recordAssemblyMtime
+> assembly
+> checkAssemblyNotRebuilt
+
+> recordAssemblyMtime
+> reload
+> assembly
+> checkAssemblyNotRebuilt
+
 # run again to check that the hash is the same
 # when the unzipped jars are read from cache
 # on disk
@@ -28,3 +37,15 @@ $ delete src/main/resources/foo.txt
 > genresource2
 > assembly
 > check
+
+# a missing JAR must be recreated even when its inputs are unchanged
+> recordAssemblyMtime
+$ delete target/**/foo.jar
+> assembly
+> checkAssemblyRebuilt
+
+# disabling the cache must restore the eager assembly behavior
+> set assemblyCacheOutput := false
+> recordAssemblyMtime
+> assembly
+> checkAssemblyRebuilt

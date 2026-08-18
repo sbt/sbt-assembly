@@ -1,0 +1,83 @@
+> clean
+> Compile/compile
+> writeDependencyJar one
+> reload
+> assembly
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# Each cache-key input must rebuild once, then return a cache hit on the next assembly.
+
+# Compiled class output (CacheKey.assemblyInputFileStamps)
+> writeClass two
+> Compile/compile
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# Processed resource output (CacheKey.assemblyInputFileStamps)
+> writeProcessedResource two
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# Input JAR (CacheKey.assemblyInputFileStamps)
+> writeDependencyJar two
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# Built-in merge strategy for an actual conflicting entry (CacheKey.resolvedMergeStrategyInfoByTargetPath)
+> set cacheKeyMergeStrategy := "last"
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# Manifest (CacheKey.jarManifest)
+> set cacheKeyManifestValue := "two"
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# assemblyRepeatableBuild (CacheKey.repeatableBuild)
+> set assemblyRepeatableBuild := false
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# assemblyPrependShellScript (CacheKey.prependShellScript)
+> set assemblyPrependShellScript := Some(Seq("#!/usr/bin/env sh", "true"))
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# assemblyAppendContentHash (CacheKey.appendContentHash)
+> set assemblyAppendContentHash := true
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# assemblyMaxHashLength (CacheKey.maxHashLength)
+> set assemblyMaxHashLength := 7
+> assembly
+> checkAssemblyRebuilt
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
