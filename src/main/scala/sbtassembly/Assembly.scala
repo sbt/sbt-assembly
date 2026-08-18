@@ -10,7 +10,7 @@ import sbt.util.{ FilesInfo, Level, ModifiedFileInfo }
 import sbt.{ File, Logger, _ }
 import sbt.Tags.Tag
 import CacheImplicits._
-import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, _ }
+import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, MergeStrategy => _, _ }
 
 import java.io.{ BufferedInputStream, ByteArrayInputStream, FileInputStream, InputStream }
 import java.net.URI
