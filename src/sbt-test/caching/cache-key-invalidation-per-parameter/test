@@ -50,6 +50,24 @@
 > assembly
 > checkAssemblyNotRebuilt
 
+# Package.FixedTimestamp (CacheKey.fixedTimestamp)
+> set cacheKeyFixedTimestamp := 1234627000L
+> assembly
+> checkAssemblyRebuilt
+> checkAssemblyEntryTimestamps
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
+# assemblyOutputPath (CacheKey.assemblyOutputPath)
+> set cacheKeyOutputName := "cache-key-relocated.jar"
+> assembly
+> checkAssemblyRebuilt
+> checkAssemblyOutputExists
+> recordAssemblyOutput
+> assembly
+> checkAssemblyNotRebuilt
+
 # assemblyRepeatableBuild (CacheKey.repeatableBuild)
 > set assemblyRepeatableBuild := false
 > assembly

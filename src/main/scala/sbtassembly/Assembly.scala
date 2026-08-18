@@ -431,6 +431,8 @@ object Assembly {
           classes.map(_.toFile()).toSet ++ filteredJars.map(toFile(_)).toSet,
           mergeStrategiesByPathList,
           jarManifest,
+          timestamp,
+          output,
           ao,
         )
         cachedAssembly(cacheKey, cacheDir, ao.scalaVersion, log)(buildAssembly)

@@ -24,6 +24,8 @@ import sjsonnew.{ BasicJsonProtocol, JsonFormat }
  *                                              SHA-1 is appended. Changing it therefore requires a rebuild for the requested output path.
  *                                              When content-hash appending is disabled, `maxHashLength` has no output effect, but retaining
  *                                              it in the key is a safe, redundant invalidation.
+ * @param fixedTimestamp                        optional fixed timestamp applied to entries written to the output JAR
+ * @param assemblyOutputPath                    normalized absolute path requested for the output JAR
  */
 private[sbtassembly] final case class CacheKey(
   assemblyInputFileStamps: FilesInfo[ModifiedFileInfo],
@@ -33,13 +35,15 @@ private[sbtassembly] final case class CacheKey(
   prependShellScript: Option[Seq[String]],
   maxHashLength: Option[Int],
   appendContentHash: Boolean,
+  fixedTimestamp: Option[Long],
+  assemblyOutputPath: String,
 )
 
 private[sbtassembly] object CacheKey {
   import CacheImplicits._
   import sbt.Package.manifestFormat
 
-  implicit val format: JsonFormat[CacheKey] = BasicJsonProtocol.caseClassArray7(
+  implicit val format: JsonFormat[CacheKey] = BasicJsonProtocol.caseClassArray9(
     CacheKey.apply,
     key => Some((
       key.assemblyInputFileStamps,
@@ -49,6 +53,8 @@ private[sbtassembly] object CacheKey {
       key.prependShellScript,
       key.maxHashLength,
       key.appendContentHash,
+      key.fixedTimestamp,
+      key.assemblyOutputPath,
     )),
   )
 }
@@ -58,6 +64,8 @@ private[sbtassembly] object AssemblyCache {
     inputFiles: Set[File],
     mergeStrategiesByPathList: Map[String, (Boolean, String)],
     jarManifest: JManifest,
+    fixedTimestamp: Option[Long],
+    assemblyOutputPath: File,
     ao: AssemblyOption,
   ): CacheKey =
     CacheKey(
@@ -68,6 +76,8 @@ private[sbtassembly] object AssemblyCache {
       prependShellScript = ao.prependShellScript,
       maxHashLength = ao.maxHashLength,
       appendContentHash = ao.appendContentHash,
+      fixedTimestamp = fixedTimestamp,
+      assemblyOutputPath = assemblyOutputPath.getAbsoluteFile.toPath.normalize.toString,
     )
 
   def cachedAssembly[Out, CachedOut](

@@ -13,8 +13,16 @@ lazy val checkAssemblyNotRebuilt = taskKey[Unit]("Checks that assembly did not r
 @transient
 lazy val checkAssemblyRebuilt = taskKey[Unit]("Checks that assembly rewrote its output")
 
+@transient
+lazy val checkAssemblyOutputExists = taskKey[Unit]("Checks that assembly produced its requested output")
+
+@transient
+lazy val checkAssemblyEntryTimestamps = taskKey[Unit]("Checks that assembly entries have the configured fixed timestamp")
+
 lazy val cacheKeyManifestValue = settingKey[String]("Value of a manifest attribute used by the cache-key test")
 lazy val cacheKeyMergeStrategy = settingKey[String]("Built-in conflict strategy used by the cache-key test")
+lazy val cacheKeyOutputName = settingKey[String]("Assembly output name used by the cache-key test")
+lazy val cacheKeyFixedTimestamp = settingKey[Long]("Fixed assembly entry timestamp used by the cache-key test")
 
 lazy val writeClass = inputKey[Unit]("Updates a compiled-class input")
 lazy val writeProcessedResource = inputKey[Unit]("Updates a processed-resource input")
@@ -89,15 +97,18 @@ def write(file: File, content: String): Unit = {
 lazy val root = (project in file(".")).settings(
   version := "0.1",
   scalaVersion := "2.12.18",
-  assembly / assemblyJarName := "cache-key.jar",
   cacheKeyManifestValue := "one",
   cacheKeyMergeStrategy := "first",
+  cacheKeyOutputName := "cache-key.jar",
+  cacheKeyFixedTimestamp := 1234567000L,
+  assembly / assemblyOutputPath := crossTarget.value / cacheKeyOutputName.value,
   Compile / unmanagedJars ++= {
     val conv = fileConverter.value
     implicit val c: xsbti.FileConverter = conv
     (baseDirectory.value / "lib" ** "cache-key-input.jar").classpath
   },
   assembly / packageOptions += Package.ManifestAttributes("Cache-Key-Test" -> cacheKeyManifestValue.value),
+  assembly / packageOptions += Package.FixedTimestamp(Some(cacheKeyFixedTimestamp.value)),
   assemblyMergeStrategy := {
     val conflictStrategy = cacheKeyMergeStrategy.value
     (path: String) =>
@@ -130,4 +141,20 @@ lazy val root = (project in file(".")).settings(
     Files.setLastModifiedTime(jar.toPath, FileTime.fromMillis(timestamp))
   },
   assemblyOutputAssertions,
+  checkAssemblyOutputExists := {
+    val output = (assembly / assemblyOutputPath).value
+    assert(output.isFile, s"assembly did not produce the requested output: $output")
+  },
+  checkAssemblyEntryTimestamps := {
+    val output = (assembly / assemblyOutputPath).value
+    val expected = cacheKeyFixedTimestamp.value - java.util.TimeZone.getDefault.getOffset(cacheKeyFixedTimestamp.value)
+    IO.withTemporaryDirectory { tmp =>
+      val files = IO.unzip(output, tmp)
+      assert(files.nonEmpty, s"assembly output has no entries: $output")
+      assert(
+        files.forall(_.lastModified == expected),
+        s"assembly entries do not have the configured fixed timestamp: $output",
+      )
+    }
+  },
 )
