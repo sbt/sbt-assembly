@@ -1,27 +1,27 @@
 package sbtassembly
 
-import com.eed3si9n.jarjarabrams._
+import com.eed3si9n.jarjarabrams.*
 import sbt.Def.Initialize
-import sbt.Keys._
+import sbt.Keys.*
 import sbt.Package.{ manifestFormat, JarManifest, MainClass, ManifestAttributes, FixedTimestamp }
 import sbt.internal.inc.classpath.ClasspathUtil
-import sbt.io.{ DirectoryFilter => _, IO => _, Path => _, Using }
+import sbt.io.{ DirectoryFilter as _, IO as _, Path as _, Using }
 import sbt.util.{ FilesInfo, Level, ModifiedFileInfo }
-import sbt.{ File, Logger, _ }
+import sbt.{ File, Logger, *}
 import sbt.Tags.Tag
-import CacheImplicits._
-import sbtassembly.AssemblyPlugin.autoImport.{ Assembly => _, MergeStrategy => _, _ }
+import CacheImplicits.*
+import sbtassembly.AssemblyPlugin.autoImport.{ Assembly as _, MergeStrategy as _, *}
 
 import java.io.{ BufferedInputStream, ByteArrayInputStream, FileInputStream, InputStream }
 import java.net.URI
 import java.nio.file.attribute.{ BasicFileAttributeView, FileTime, PosixFilePermission }
-import java.nio.file.{ Path => NioPath, _ }
+import java.nio.file.{ Path as NioPath, *}
 import java.security.MessageDigest
 import java.time.Instant
-import java.util.jar.{ Attributes => JAttributes, JarFile, Manifest => JManifest }
+import java.util.jar.{ Attributes as JAttributes, JarFile, Manifest as JManifest }
 import scala.annotation.tailrec
 import scala.collection.GenSeq
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters.*
 import scala.language.postfixOps
 import xsbti.FileConverter
 import PluginCompat.*
@@ -617,7 +617,7 @@ object Assembly {
       option match {
         case JarManifest(mergeManifest)     => Package.mergeManifests(manifest, mergeManifest)
         case MainClass(mainClassName)       => main.put(JAttributes.Name.MAIN_CLASS, mainClassName)
-        case ManifestAttributes(attrs @ _*) => main ++= attrs
+        case ManifestAttributes(attrs*)     => main ++= attrs
         case FixedTimestamp(value)          => time = value 
         case _                              =>
           log.warn("Ignored unknown package option " + option)

@@ -1,7 +1,7 @@
 package sbtassembly
 
 import com.eed3si9n.jarjarabrams
-import sbt.Keys._
+import sbt.Keys.*
 import sbt.{ given, * }
 import PluginCompat.*
 import sbtcompat.PluginCompat.*
@@ -26,7 +26,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         )
     }
   }
-  import autoImport.{ baseAssemblySettings => _, Assembly => _, _ }
+  import autoImport.{ baseAssemblySettings as _, Assembly as _, *}
 
   override lazy val globalSettings: Seq[Def.Setting[?]] = Seq(
     assemblyMergeStrategy := MergeStrategy.defaultMergeStrategy,

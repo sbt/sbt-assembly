@@ -40,7 +40,7 @@ private[sbtassembly] final case class CacheKey(
 )
 
 private[sbtassembly] object CacheKey {
-  import CacheImplicits._
+  import CacheImplicits.*
   import sbt.Package.manifestFormat
 
   implicit val format: JsonFormat[CacheKey] = BasicJsonProtocol.caseClassArray9(

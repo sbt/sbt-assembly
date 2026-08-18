@@ -2,13 +2,13 @@ package sbtassembly
 
 import sbt.io.{ IO, Using }
 import sbt.util.Level
-import sbtassembly.Assembly._
+import sbtassembly.Assembly.*
 import sbtassembly.AssemblyUtils.AppendEofInputStream
 
 import java.io.{ BufferedReader, ByteArrayInputStream, InputStreamReader, SequenceInputStream }
 import java.nio.charset.Charset
 import java.util.Collections
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters.*
 import scala.reflect.io.Streamable
 
 /**
@@ -185,11 +185,11 @@ object MergeStrategy {
   val defaultMergeStrategy: String => MergeStrategy = {
     case x if isConfigFile(x) =>
       MergeStrategy.concat
-    case PathList(ps @ _*) if isReadme(ps.last) || isLicenseFile(ps.last) =>
+    case PathList(ps*) if isReadme(ps.last) || isLicenseFile(ps.last) =>
       MergeStrategy.rename
-    case PathList(ps @ _*) if isSystemJunkFile(ps.last) =>
+    case PathList(ps*) if isSystemJunkFile(ps.last) =>
       MergeStrategy.discard
-    case PathList("META-INF", xs @ _*) =>
+    case PathList("META-INF", xs*) =>
       xs map {
         _.toLowerCase
       } match {
