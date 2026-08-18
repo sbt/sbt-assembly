@@ -20,13 +20,12 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.util.jar.{ Attributes as JAttributes, JarFile, Manifest as JManifest }
 import scala.annotation.tailrec
-import scala.collection.GenSeq
-import scala.collection.JavaConverters.*
 import scala.language.postfixOps
 import xsbti.FileConverter
 import PluginCompat.*
 import sbtcompat.PluginCompat.{FileRef, Out, toNioPath, toFile, toOutput, toNioPaths, toFiles, moduleIDStr, parseModuleIDStrAttribute}
 import CollectionConverters.{ given, * }
+import JavaCollectionConverters.*
 
 object Assembly {
   // used for contraband
@@ -225,7 +224,7 @@ object Assembly {
     implicit val ev: FileConverter = conv // used by PluginCompat
     val (jars, dirs) = timed(Level.Debug, "Separate classpath projects and all dependencies") {
       classpath.toVector
-        .sortBy(x => toNioPath(x).toAbsolutePath().toString())
+        .sortBy(x => toNioPath(x).toAbsolutePath.toString)
         .partition(x => ClasspathUtil.isArchive(toNioPath(x)))
     }
     val externalDeps = timed(Level.Debug, "Collect only external dependencies") {
@@ -264,7 +263,7 @@ object Assembly {
       if (!ao.includeBin) Vector.empty
       else dirs.flatMap { dir0 =>
         val dir = toNioPath(dir0)
-        (dir.toFile ** (-DirectoryFilter)).get().map(dir -> _.toPath())
+        (dir.toFile ** (-DirectoryFilter)).get().map(dir -> _.toPath)
       }
     val classMappings =
       timed(Level.Debug, "Collect and shade project classes") {
@@ -274,7 +273,7 @@ object Assembly {
             val sanitizedTarget =
               if (originalTarget.contains('\\')) originalTarget.replace('\\', '/')
               else originalTarget
-            classShader(sanitizedTarget, () => new BufferedInputStream(new FileInputStream(file.toFile())))
+            classShader(sanitizedTarget, () => new BufferedInputStream(new FileInputStream(file.toFile)))
               .map { case (shadedName, stream) =>
                 Project(targetJarName, sanitizedTarget, shadedName, stream)
               }
@@ -351,7 +350,7 @@ object Assembly {
         }
         val jarEntriesToWrite = timed(Level.Debug, "Sort/Parallelize merged entries") {
           if (ao.repeatableBuild) // we need the jars in a specific order to have a consistent hash
-            keptEntries.seq.sortBy(_.target)
+            keptEntries.sortBy(_.target)
           else // we actually gain performance when creating the jar in parallel, but we won't have a consistent hash
             keptEntries.par.toVector
         }
@@ -363,7 +362,7 @@ object Assembly {
         timed(Level.Debug, "Create jar") {
           if (absOutput.isDirectory) {
             val invalidPath = absOutput.toPath.normalize
-            log.error(s"expected a file name for assemblyOutputPath, but found a directory: ${invalidPath}; fix the setting or delete the directory")
+            log.error(s"expected a file name for assemblyOutputPath, but found a directory: $invalidPath; fix the setting or delete the directory")
             throw new RuntimeException("Exiting task")
           } else {
             IO.delete(absOutput)
@@ -572,7 +571,7 @@ object Assembly {
 
   private[sbtassembly] def createJar(
       output: File,
-      entries: GenSeq[JarEntry],
+      entries: Seq[JarEntry],
       manifest: JManifest,
       localTime: Long
   ): Unit = {
@@ -654,16 +653,15 @@ object Assembly {
       .partition(_.isRight)
     if (failures.nonEmpty) {
       log.error(s"${failures.size} error(s) were encountered during the merge:")
-      throw new RuntimeException(failures.map(_.left.get).mkString(newLine, newLine, ""))
+      throw new RuntimeException(lefts(failures.iterator).mkString(newLine, newLine, ""))
     }
-    successfullyMerged.map(_.right.get).toVector
+    rights(successfullyMerged.iterator).toVector
   }
 
   private[sbtassembly] def reportMergeResults(mergedEntries: Vector[MergedEntry], log: Logger): Unit =
     mergedEntries
       .groupBy(entry => entry.mergeStrategy.isBuiltIn -> entry.mergeStrategy.name)
       .values
-      .seq // we need to switch to sequential here to not mess up the detail logs
       .foreach { entries => // TODO figure out how to use BufferedAppender so we can keep this parallel
         val mergeStrategy = entries.head.mergeStrategy
         val entriesToNotify = entries.filter(entry => entry.origins.size >= mergeStrategy.notifyThreshold)
@@ -676,7 +674,7 @@ object Assembly {
             mergeStrategy.summaryLogLevel,
             s"$totalMerged file(s) merged using strategy '${strategyDisplayName(mergeStrategy)}'$notifyDetails"
           )
-          log.log(mergeStrategy.detailLogLevel, entriesToNotify.seq.mkString(""))
+          log.log(mergeStrategy.detailLogLevel, entriesToNotify.iterator.mkString(""))
         }
       }
 
@@ -707,11 +705,11 @@ object Assembly {
             }
         }
         .filter { case ((_, _), conflictingDirs) =>
-          conflictingDirs.nonEmpty
+          conflictingDirs.iterator.nonEmpty
         }
         .map { case ((target, conflictingFiles), conflictingDirectories) =>
           val sources = conflictingFiles.mkString(newLineIndented)
-          val directories = conflictingDirectories.mkString(newLineIndented)
+          val directories = conflictingDirectories.iterator.mkString(newLineIndented)
           Left(
             s"Files to be written at '$target' have the same name as directories to be written:$newLineIndented$directories$newLineIndented$sources"
           )
@@ -719,9 +717,15 @@ object Assembly {
 
     if (filesConflictingWithDirs.nonEmpty) {
       log.error(s"${filesConflictingWithDirs.size} error(s) were still encountered after the merge:")
-      throw new RuntimeException(filesConflictingWithDirs.map(_.left.get).mkString(newLine, newLine, ""))
+      throw new RuntimeException(lefts(filesConflictingWithDirs.iterator).mkString(newLine, newLine, ""))
     }
   }
+
+  private[sbtassembly] def lefts[A, B](values: Iterator[Either[A, B]]): Iterator[A] =
+    values.collect { case Left(value) => value }
+
+  private[sbtassembly] def rights[A, B](values: Iterator[Either[A, B]]): Iterator[B] =
+    values.collect { case Right(value) => value }
 
   private[sbtassembly] def hash(file: File): String =
     bytesToString(sha1.digest(sbt.io.Hash(file)))
@@ -747,10 +751,10 @@ object Assembly {
       bytesToString(messageDigest.digest())
     }
 
-  private[sbtassembly] def bytesToString(bytes: Seq[Byte]): String =
-    bytes map {
+  private[sbtassembly] def bytesToString(bytes: Array[Byte]): String =
+    bytes.iterator.map {
       "%02x".format(_)
-    } mkString
+    }.mkString
 }
 
 object PathList {

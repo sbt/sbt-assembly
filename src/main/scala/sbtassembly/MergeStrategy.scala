@@ -3,12 +3,12 @@ package sbtassembly
 import sbt.io.{ IO, Using }
 import sbt.util.Level
 import sbtassembly.Assembly.*
+import sbtassembly.PluginCompat.JavaCollectionConverters.*
 import sbtassembly.AssemblyUtils.AppendEofInputStream
 
 import java.io.{ BufferedReader, ByteArrayInputStream, InputStreamReader, SequenceInputStream }
 import java.nio.charset.Charset
 import java.util.Collections
-import scala.collection.JavaConverters.*
 import scala.reflect.io.Streamable
 
 /**
@@ -220,7 +220,7 @@ object MergeStrategy {
       strategy: MergeStrategy,
       dependencies: Vector[Dependency]
   ): Either[String, MergedEntry] =
-    strategy(dependencies).right.map(entry => MergedEntry(entry, dependencies, strategy))
+    strategy(dependencies).map(entry => MergedEntry(entry, dependencies, strategy))
 }
 
 object CustomMergeStrategy {

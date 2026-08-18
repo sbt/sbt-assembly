@@ -14,6 +14,7 @@ object PluginCompat:
   type FixedTimestamp = PackageOption.FixedTimestamp
 
   val CollectionConverters = scala.collection.parallel.CollectionConverters
+  val JavaCollectionConverters = scala.jdk.CollectionConverters
 
   def baseTestSettings: Seq[sbt.Def.Setting[?]] = Seq(
     AssemblyKeys.assembly / test := TestResult.Empty,
