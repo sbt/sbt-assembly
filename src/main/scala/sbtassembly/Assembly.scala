@@ -724,7 +724,7 @@ object Assembly {
   }
 
   private[sbtassembly] def hash(file: File): String =
-    bytesToString(sha1.digest(FileInfo.hash(file).hash.seq.toArray))
+    bytesToString(sha1.digest(sbt.io.Hash(file)))
 
   private[sbtassembly] def sha1 = MessageDigest.getInstance("SHA-1")
 
