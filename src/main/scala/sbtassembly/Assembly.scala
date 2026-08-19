@@ -427,11 +427,12 @@ object Assembly {
           }
       ) {
         val (_, classes) = classByParentDir.unzip
-        val cacheKey = makeCacheKey(
-          classes,
-          filteredJars,
+        val cacheKey = AssemblyCache.makeCacheKey(
+          classes.map(_.toFile()).toSet ++ filteredJars.map(toFile(_)).toSet,
           mergeStrategiesByPathList,
           jarManifest,
+          timestamp,
+          output,
           ao,
         )
         cachedAssembly(cacheKey, cacheDir, ao.scalaVersion, log)(buildAssembly)

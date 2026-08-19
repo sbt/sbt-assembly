@@ -1,12 +1,11 @@
 package sbtassembly
 
 import java.io.File
-import java.nio.file.{ Path => NioPath }
-import java.util.jar.{ Manifest => JManifest }
 import sbt.*
-import Keys.test
-import xsbti.{ FileConverter, HashedVirtualFileRef, VirtualFile }
-import sbtcompat.PluginCompat.Out
+import sbt.Keys.test
+import xsbti.FileConverter
+import sbtcompat.PluginCompat.{ Out, toFile, toOutput }
+import sjsonnew.BasicJsonProtocol
 
 object PluginCompat:
   type JarManifest = PackageOption.JarManifest
@@ -40,17 +39,21 @@ object PluginCompat:
 
   val inTask = Project.inTask
 
-  type CacheKey = Int
-  private[sbtassembly] def makeCacheKey(
-    classes: Vector[NioPath],
-    filteredJars: Vector[Attributed[HashedVirtualFileRef]],
-    mergeStrategiesByPathList: Map[String, (Boolean, String)],
-    jarManifest: JManifest,
-    ao: AssemblyOption,
-  ): CacheKey = 0
-
   private[sbtassembly] def cachedAssembly(inputs: CacheKey, cacheDir: File, scalaVersion: String, log: Logger)(
       buildAssembly: () => Out
-  ): Out =
-    buildAssembly()
+  )(using conv: FileConverter): Out = {
+    import BasicJsonProtocol.given
+
+    AssemblyCache.cachedAssembly[Out, String](inputs, cacheDir, scalaVersion, log)(
+      toCachedOutput = {  output =>
+        toFile(output).getAbsolutePath
+      },
+      fromCachedOutput = { path =>
+        toOutput(new File(path))
+      },
+      cachedOutputFile = { path =>
+        new File(path)
+      },
+    )(buildAssembly)
+  }
 end PluginCompat
