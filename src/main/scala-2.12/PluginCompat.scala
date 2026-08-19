@@ -7,6 +7,7 @@ private[sbtassembly] object PluginCompat {
   type MainClass = sbt.Package.MainClass
 
   object CollectionConverters
+  val JavaCollectionConverters = scala.collection.JavaConverters
 
   def baseTestSettings: Seq[sbt.Def.Setting[?]] = Seq(
     AssemblyKeys.assembly / test := (()),
