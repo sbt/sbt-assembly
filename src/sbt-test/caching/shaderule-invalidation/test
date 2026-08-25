@@ -1,0 +1,11 @@
+> clean
+> Compile/compile
+
+# baseline: only keep.** is kept
+> assembly
+> checkKeptOnly
+
+# widen the keep rule; nothing else changes
+> set keepPatterns := Seq("keep.**", "removed.**")
+> assembly
+> checkBothKept
