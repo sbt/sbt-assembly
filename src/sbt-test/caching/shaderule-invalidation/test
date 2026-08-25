@@ -1,0 +1,16 @@
+> clean
+> Compile/compile
+
+# baseline: only keep.** is kept
+> assembly
+> checkKeptOnly
+
+# widen the keep rule; nothing else changes
+> set keepPatterns := Seq("keep.**", "removed.**")
+> assembly
+> checkBothKept
+
+# the widened rule is now part of the cache key, so a repeat is still a cache hit
+> recordAssemblyMtime
+> assembly
+> checkAssemblyNotRebuilt
