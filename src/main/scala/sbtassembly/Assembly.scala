@@ -52,6 +52,8 @@ object Assembly {
   )
   private[sbtassembly] val scala213AndLaterLibraries =
     Vector("scala-actors", "scala-compiler", "scala-continuations", "scala-library", "scala-reflect")
+  private[sbtassembly] val scala3Libraries =
+    Vector("scala-library", "scala3-compiler", "scala3-interfaces", "scala3-library", "tasty-core")
 
   /* Closeable resources */
   private[sbtassembly] val jarFileSystemResource =
@@ -236,9 +238,11 @@ object Assembly {
     }
     val scalaLibraries = {
       val scalaVersionParts = VersionNumber(ao.scalaVersion)
-      val isScala213AndLater =
-        scalaVersionParts.numbers.length >= 2 && scalaVersionParts._1.get >= 2 && scalaVersionParts._2.get >= 13
-      if (isScala213AndLater) scala213AndLaterLibraries else scalaPre213Libraries
+      val epoch = scalaVersionParts._1
+      val major = scalaVersionParts._2
+      if (epoch.exists(_ >= 3L)) scala3Libraries
+      else if (epoch.contains(2L) && major.exists(_ >= 13L)) scala213AndLaterLibraries
+      else scalaPre213Libraries
     }
 
     val filteredJars = timed(Level.Debug, "Filter jars") {
