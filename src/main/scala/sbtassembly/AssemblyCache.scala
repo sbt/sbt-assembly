@@ -13,6 +13,9 @@ import sjsonnew.{ BasicJsonProtocol, JsonFormat }
  * @param assemblyInputFileStamps               modification-time information for compiled class/resource outputs
  *                                              and selected JARs on the resolved assembly classpath; source files are not watched directly
  * @param resolvedMergeStrategyInfoByTargetPath resolved merge-strategy information, indexed by target path
+ * @param shadeRules                            configured shade rules, rendered as strings. Rules reach the target paths
+ *                                              only when they rename an entry, so keep rules and changes to a rule's
+ *                                              target scope are otherwise invisible to this key
  * @param jarManifest                           manifest written to the output JAR
  * @param repeatableBuild                       whether output JAR entries are sorted by target path before writing to
  *                                              make the output bytes deterministic for reproducible builds
@@ -30,6 +33,7 @@ import sjsonnew.{ BasicJsonProtocol, JsonFormat }
 private[sbtassembly] final case class CacheKey(
   assemblyInputFileStamps: FilesInfo[ModifiedFileInfo],
   resolvedMergeStrategyInfoByTargetPath: Map[String, (Boolean, String)],
+  shadeRules: Seq[String],
   jarManifest: JManifest,
   repeatableBuild: Boolean,
   prependShellScript: Option[Seq[String]],
@@ -43,11 +47,12 @@ private[sbtassembly] object CacheKey {
   import CacheImplicits.*
   import sbt.Package.manifestFormat
 
-  implicit val format: JsonFormat[CacheKey] = BasicJsonProtocol.caseClassArray9(
+  implicit val format: JsonFormat[CacheKey] = BasicJsonProtocol.caseClassArray10(
     CacheKey.apply,
     key => Some((
       key.assemblyInputFileStamps,
       key.resolvedMergeStrategyInfoByTargetPath,
+      key.shadeRules,
       key.jarManifest,
       key.repeatableBuild,
       key.prependShellScript,
@@ -71,6 +76,7 @@ private[sbtassembly] object AssemblyCache {
     CacheKey(
       assemblyInputFileStamps = lastModified(inputFiles),
       resolvedMergeStrategyInfoByTargetPath = mergeStrategiesByPathList,
+      shadeRules = ao.shadeRules.map(_.toString),
       jarManifest = jarManifest,
       repeatableBuild = ao.repeatableBuild,
       prependShellScript = ao.prependShellScript,
