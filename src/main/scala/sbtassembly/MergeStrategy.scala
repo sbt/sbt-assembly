@@ -3,12 +3,10 @@ package sbtassembly
 import sbt.io.{ IO, Using }
 import sbt.util.Level
 import sbtassembly.Assembly.*
-import sbtassembly.PluginCompat.JavaCollectionConverters.*
 import sbtassembly.AssemblyUtils.AppendEofInputStream
 
-import java.io.{ BufferedReader, ByteArrayInputStream, InputStreamReader, SequenceInputStream }
+import java.io.{ BufferedReader, ByteArrayInputStream, InputStream, InputStreamReader, SequenceInputStream }
 import java.nio.charset.Charset
-import java.util.Collections
 import scala.reflect.io.Streamable
 
 /**
@@ -108,8 +106,14 @@ object MergeStrategy {
    * @param separator a custom content separator, defaulted to the System line separator
    */
   def concat(separator: String = newLine): MergeStrategy = MergeStrategy("Concat") { conflicts =>
-    val streamsWithNewLine = conflicts.map(_.stream()).map(AppendEofInputStream(_, separator))
-    val concatenatedStream = () => new SequenceInputStream(Collections.enumeration(streamsWithNewLine.asJava))
+    val concatenatedStream = () => {
+      val streams = new java.util.Enumeration[InputStream] {
+        private val remaining = conflicts.iterator
+        override def hasMoreElements: Boolean = remaining.hasNext
+        override def nextElement(): InputStream = AppendEofInputStream(remaining.next().stream(), separator)
+      }
+      new SequenceInputStream(streams)
+    }
     Right(Vector(JarEntry(conflicts.head.target, concatenatedStream)))
   }
 

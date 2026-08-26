@@ -18,7 +18,7 @@ import java.nio.file.attribute.{ BasicFileAttributeView, FileTime, PosixFilePerm
 import java.nio.file.{ Path as NioPath, *}
 import java.security.MessageDigest
 import java.time.Instant
-import java.util.jar.{ Attributes as JAttributes, JarFile, Manifest as JManifest }
+import java.util.jar.{ Attributes as JAttributes, Manifest as JManifest }
 import scala.annotation.tailrec
 import scala.language.postfixOps
 import xsbti.FileConverter
@@ -301,7 +301,8 @@ object Assembly {
           ),
         log
       )
-    val (jarFiles, jarFileEntries) = timed(Level.Debug, "Collect and shade dependency entries") {
+    val jarFilePool = JarFilePool()
+    val jarFileEntries = timed(Level.Debug, "Collect and shade dependency entries") {
       val (externalJars, projectJars) = filteredJars.partition(externalDeps.contains)
       (projectJars ++ externalJars).par.map { jar =>
         val module = jar.metadata
@@ -309,20 +310,23 @@ object Assembly {
           .map(parseModuleIDStrAttribute)
           .map(m => ModuleCoordinate(m.organization, m.name, m.revision))
           .getOrElse(ModuleCoordinate("", jar.data.name.replaceAll(".jar", ""), ""))
-        val jarFile = new JarFile(toFile(jar))
-        jarFile -> jarFile
-          .entries()
-          .asScala
-          .filterNot(_.isDirectory)
-          .toVector
-          .par
-          .flatMap { entry =>
-            jarShader(module)(entry.getName, () => jarFile.getInputStream(entry))
-              .map { case (shadedName, stream) =>
-                Library(module, entry.getName, shadedName, stream)
-              }
-          }
-      }.unzip
+        val jarPath = toFile(jar)
+        jarFilePool.withJar(jarPath) { jarFile =>
+          jarFile
+            .entries()
+            .asScala
+            .filterNot(_.isDirectory)
+            .toVector
+            .par
+            .flatMap { entry =>
+              val entryName = entry.getName
+              jarShader(module)(entryName, () => jarFilePool.stream(jarPath, entryName))
+                .map { case (shadedName, stream) =>
+                  Library(module, entryName, shadedName, stream)
+                }
+            }
+        }
+      }
     }
 
     try {
@@ -448,7 +452,8 @@ object Assembly {
       } else buildAssembly()
     } finally
       timed(Level.Debug, "Close library jar references") {
-        jarFiles.foreach(_.close())
+        log.debug(jarFilePool.stats)
+        jarFilePool.close()
       }
   }
 
