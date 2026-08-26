@@ -1,0 +1,15 @@
+# the Scala 3 library must not leak into the assembly
+> assembly
+$ exists target/**/foo-assembly-0.1.jar
+> checkScalaExcluded
+
+# without the Scala library on the classpath this cannot run
+-> run1
+
+# the Scala 3 library must end up in the assemblyPackageScala JAR
+> assemblyPackageScala
+$ exists target/**/scala-library-3.3.4-assembly.jar
+> checkScalaPackaged
+
+# the two JARs together are enough to run
+> run2

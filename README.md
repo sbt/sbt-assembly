@@ -432,7 +432,7 @@ NOTE: If you use [`-jar` option for `java`](http://docs.oracle.com/javase/7/docs
 
 ### Excluding Scala library JARs
 
-To exclude Scala library (JARs that start with `scala-` and are included in the binary Scala distribution) to run with `scala` command,
+To exclude Scala library (JARs that are included in the binary Scala distribution, such as `scala-library`, `scala3-library` and `tasty-core`) to run with `scala` command,
 
 ```scala
 lazy val app = (project in file("app"))
