@@ -52,6 +52,8 @@ object Assembly {
   )
   private[sbtassembly] val scala213AndLaterLibraries =
     Vector("scala-actors", "scala-compiler", "scala-continuations", "scala-library", "scala-reflect")
+  private[sbtassembly] val scala3Libraries =
+    Vector("scala-library", "scala3-compiler", "scala3-interfaces", "scala3-library", "tasty-core")
 
   /* Closeable resources */
   private[sbtassembly] val jarFileSystemResource =
@@ -236,9 +238,17 @@ object Assembly {
     }
     val scalaLibraries = {
       val scalaVersionParts = VersionNumber(ao.scalaVersion)
-      val isScala213AndLater =
-        scalaVersionParts.numbers.length >= 2 && scalaVersionParts._1.get >= 2 && scalaVersionParts._2.get >= 13
-      if (isScala213AndLater) scala213AndLaterLibraries else scalaPre213Libraries
+      val major = scalaVersionParts._2
+      scalaVersionParts._1 match {
+        case Some(3L)                           => scala3Libraries
+        case Some(2L) if major.exists(_ >= 13L) => scala213AndLaterLibraries
+        case Some(2L)                           => scalaPre213Libraries
+        case _ =>
+          sys.error(
+            s"""Unsupported Scala version "${ao.scalaVersion}" in assemblyOption. """ +
+              "sbt-assembly only knows which JARs ship with the Scala 2 and Scala 3 distributions."
+          )
+      }
     }
 
     val filteredJars = timed(Level.Debug, "Filter jars") {

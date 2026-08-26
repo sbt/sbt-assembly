@@ -1,0 +1,5 @@
+# a known Scala epoch assembles
+> known/assembly
+
+# an unrecognized epoch fails instead of guessing a Scala library list
+-> unknown/assembly
