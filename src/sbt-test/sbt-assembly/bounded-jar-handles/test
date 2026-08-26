@@ -1,0 +1,8 @@
+# force the jar handle pool to evict on every read
+> keepOneJarOpen
+
+> assembly
+$ exists target/**/foo.jar
+
+# every entry must still be readable after its jar was closed and reopened
+> check
