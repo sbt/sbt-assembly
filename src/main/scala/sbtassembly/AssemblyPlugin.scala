@@ -39,7 +39,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyPrependShellScript := None,
     assemblyCacheOutput := true,
     assemblyRepeatableBuild := true,
-    assemblyFailOnShadeError := false,
+    assemblyFailOnShadeError := true,
     concurrentRestrictions += Tags.limit(Assembly.assemblyTag, 1)
   )
 

@@ -508,7 +508,7 @@ object Assembly {
   private[sbtassembly] def shader(
       shadeRules: SeqShadeRules,
       log: Logger,
-      failOnShadeError: Boolean = false
+      failOnShadeError: Boolean
   ): (String, LazyInputStream) => Option[(String, LazyInputStream)] =
     if (shadeRules.isEmpty)
       (name: String, inputStream: LazyInputStream) => Some(name -> inputStream)
