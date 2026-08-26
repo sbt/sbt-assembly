@@ -1,0 +1,9 @@
+# entries that cannot be shaded are warned about, but kept by default
+> compile
+> makeUnshadeableJar
+> assembly
+> checkUnshadeableEntries
+
+# ... and abort the build when assemblyFailOnShadeError is set
+> set assembly / assemblyFailOnShadeError := true
+-> assembly

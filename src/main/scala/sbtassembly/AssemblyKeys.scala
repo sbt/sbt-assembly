@@ -31,6 +31,7 @@ trait AssemblyKeys {
   lazy val assemblyMaxHashLength     = settingKey[Int]("Length of SHA-1 fingerprint used for the assembly file name")
   lazy val assemblyCacheOutput       = settingKey[Boolean]("Enables (true) or disables (false) cacheing the output if the content has not changed")
   lazy val assemblyPrependShellScript = settingKey[Option[Seq[String]]]("A launch script to prepend to the über JAR")
+  lazy val assemblyFailOnShadeError  = settingKey[Boolean]("Fails the build when an entry cannot be shaded, instead of keeping it unshaded or dropping it")
   lazy val assemblyRepeatableBuild   = settingKey[Boolean]("If (true), builds the jar with a consistent hash (given the same inputs/assembly configuration) so it can be cached, but loses parallelism optimization. " +
                                                                        "If (false), builds the jar faster via parallelization, but loses hash consistency, and hence, cannot be cached")
 }
