@@ -527,11 +527,11 @@ object Assembly {
         shadeRules,
         verbose = false,
         skipManifest = false,
+        misplacedClassStrategy = if (failOnShadeError) Some("fatal") else None,
       )
       (name: String, inputStream: LazyInputStream) => {
         val is = inputStream()
         val bytes = Streamable.bytes(is)
-        reportShadeError(name, bytes, failOnShadeError, log)
         val shadeResult = bytecodeShader(bytes, name)
         if (shadeResult.isEmpty) log.debug(s"Shade discarded: $name")
         shadeResult.map { case (bytes, shadedName) =>
@@ -542,34 +542,6 @@ object Assembly {
             }
           )
         }
-      }
-    }
-
-  private val versionedClassPrefix = "META-INF/versions/"
-
-  /**
-   * Reports the entries jarjar cannot shade, since it silently keeps them unshaded or drops them,
-   * which yields an über JAR that fails at runtime.
-   */
-  private def reportShadeError(name: String, bytes: Array[Byte], failOnShadeError: Boolean, log: Logger): Unit =
-    if (name.endsWith(".class")) {
-      val problem =
-        try {
-          val className = new org.objectweb.asm.ClassReader(bytes).getClassName + ".class"
-          val entryName =
-            if (name.startsWith(versionedClassPrefix))
-              name.substring(name.indexOf("/", versionedClassPrefix.length) + 1)
-            else name
-          if (className == entryName) None
-          else Some(s"the class name $className does not match the JAR entry, so the entry is dropped")
-        } catch {
-          case e: Exception =>
-            Some(s"the class name cannot be read from the bytecode (${e.getClass.getName}: ${e.getMessage})")
-        }
-      problem.foreach { reason =>
-        val message = s"Unable to shade $name: $reason"
-        if (failOnShadeError) sys.error(message)
-        else log.warn(s"$message. Set assemblyFailOnShadeError to true to fail the build instead")
       }
     }
 

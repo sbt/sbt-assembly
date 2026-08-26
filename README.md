@@ -315,7 +315,7 @@ compiled for a newer JDK than the one running sbt, and it drops class files whos
 does not match the JAR entry they sit in. Either way the über JAR comes out half shaded,
 with the references renamed but not the classes they point at, and it breaks at runtime.
 sbt-assembly fails the build on those entries. Turn `assemblyFailOnShadeError` off if you
-would rather get a warning and keep them:
+would rather Jar Jar just report them on stderr and keep them:
 
 ```scala
 ThisBuild / assemblyFailOnShadeError := false

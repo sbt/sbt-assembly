@@ -3,7 +3,7 @@
 > makeUnshadeableJar
 -> assembly
 
-# ... and are only warned about when assemblyFailOnShadeError is off
+# ... and are only reported when assemblyFailOnShadeError is off
 > set assembly / assemblyFailOnShadeError := false
 > assembly
 > checkUnshadeableEntries
