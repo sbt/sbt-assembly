@@ -238,11 +238,17 @@ object Assembly {
     }
     val scalaLibraries = {
       val scalaVersionParts = VersionNumber(ao.scalaVersion)
-      val epoch = scalaVersionParts._1
       val major = scalaVersionParts._2
-      if (epoch.exists(_ >= 3L)) scala3Libraries
-      else if (epoch.contains(2L) && major.exists(_ >= 13L)) scala213AndLaterLibraries
-      else scalaPre213Libraries
+      scalaVersionParts._1 match {
+        case Some(3L)                           => scala3Libraries
+        case Some(2L) if major.exists(_ >= 13L) => scala213AndLaterLibraries
+        case Some(2L)                           => scalaPre213Libraries
+        case _ =>
+          sys.error(
+            s"""Unsupported Scala version "${ao.scalaVersion}" in assemblyOption. """ +
+              "sbt-assembly only knows which JARs ship with the Scala 2 and Scala 3 distributions."
+          )
+      }
     }
 
     val filteredJars = timed(Level.Debug, "Filter jars") {
