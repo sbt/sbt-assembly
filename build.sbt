@@ -11,7 +11,7 @@ def scala3 = "3.8.4"
 ThisBuild / crossScalaVersions := Seq(scala212, scala3)
 ThisBuild / scalaVersion := scala3
 
-lazy val jarjar = "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.17.1"
+lazy val jarjar = "com.eed3si9n.jarjarabrams" %% "jarjar-abrams-core" % "1.18.0"
 
 lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin, ContrabandPlugin)

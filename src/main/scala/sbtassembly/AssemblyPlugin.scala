@@ -39,6 +39,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assemblyPrependShellScript := None,
     assemblyCacheOutput := true,
     assemblyRepeatableBuild := true,
+    assemblyFailOnShadeError := true,
     concurrentRestrictions += Tags.limit(Assembly.assemblyTag, 1)
   )
 
@@ -123,6 +124,7 @@ object AssemblyPlugin extends sbt.AutoPlugin {
         .withScalaVersion(scalaVersion.value)
         .withLevel(logLevel.?.value.getOrElse(Level.Info))
         .withRepeatableBuild(assemblyRepeatableBuild.value)
+        .withFailOnShadeError(assemblyFailOnShadeError.value)
     }
   )
 

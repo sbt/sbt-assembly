@@ -80,6 +80,7 @@ And here is the list of the keys you can rewite that are scoped globally:
 
     assemblyAppendContentHash     assemblyCacheOutput           assemblyShadeRules
     assemblyExcludedJars          assemblyMergeStrategy         assemblyRepeatableBuild
+    assemblyFailOnShadeError
 
 Keys scoped to the subproject should be placed in `.settings(...)` whereas the globally scoped keys can either be placed inside of `.settings(...)` or scoped using `ThisBuild / ` to be shared across multiple subprojects.
 
@@ -305,6 +306,19 @@ lazy val app = (project in file("app"))
     assembly / logLevel := Level.Debug
     // more settings here ...
   )
+```
+
+#### Shading errors
+
+Some entries cannot be shaded. Jar Jar cannot read the class name out of a class file
+compiled for a newer JDK than the one running sbt, and it drops class files whose name
+does not match the JAR entry they sit in. Either way the über JAR comes out half shaded,
+with the references renamed but not the classes they point at, and it breaks at runtime.
+sbt-assembly fails the build on those entries. Turn `assemblyFailOnShadeError` off if you
+would rather Jar Jar just report them on stderr and keep them:
+
+```scala
+ThisBuild / assemblyFailOnShadeError := false
 ```
 
 #### Scala libraries

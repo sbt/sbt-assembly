@@ -268,7 +268,7 @@ object Assembly {
         case _                    => false
       }
     }
-    val classShader = shader(nonKeepRules.filter(_.isApplicableToCompiling), log)
+    val classShader = shader(nonKeepRules.filter(_.isApplicableToCompiling), log, ao.failOnShadeError)
     val classByParentDir: Vector[(NioPath, NioPath)] =
       if (!ao.includeBin) Vector.empty
       else dirs.flatMap { dir0 =>
@@ -299,7 +299,8 @@ object Assembly {
                 com.eed3si9n.jarjarabrams.ModuleCoordinate(module.organization, module.name, module.version)
               )
           ),
-        log
+        log,
+        ao.failOnShadeError
       )
     val jarFilePool = JarFilePool()
     val jarFileEntries = timed(Level.Debug, "Collect and shade dependency entries") {
@@ -521,7 +522,8 @@ object Assembly {
 
   private[sbtassembly] def shader(
       shadeRules: SeqShadeRules,
-      log: Logger
+      log: Logger,
+      failOnShadeError: Boolean
   ): (String, LazyInputStream) => Option[(String, LazyInputStream)] =
     if (shadeRules.isEmpty)
       (name: String, inputStream: LazyInputStream) => Some(name -> inputStream)
@@ -530,10 +532,12 @@ object Assembly {
         shadeRules,
         verbose = false,
         skipManifest = false,
+        misplacedClassStrategy = if (failOnShadeError) Some("fatal") else None,
       )
       (name: String, inputStream: LazyInputStream) => {
         val is = inputStream()
-        val shadeResult = bytecodeShader(Streamable.bytes(is), name)
+        val bytes = Streamable.bytes(is)
+        val shadeResult = bytecodeShader(bytes, name)
         if (shadeResult.isEmpty) log.debug(s"Shade discarded: $name")
         shadeResult.map { case (bytes, shadedName) =>
           if (name != shadedName) log.debug(s"Shaded: $name -> $shadedName")

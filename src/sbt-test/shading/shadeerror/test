@@ -1,0 +1,9 @@
+# entries that cannot be shaded abort the build
+> compile
+> makeUnshadeableJar
+-> assembly
+
+# ... and are only reported when assemblyFailOnShadeError is off
+> set assembly / assemblyFailOnShadeError := false
+> assembly
+> checkUnshadeableEntries
