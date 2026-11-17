@@ -87,9 +87,9 @@ object AssemblyPlugin extends sbt.AutoPlugin {
     assembly / fullClasspath := Def.uncached((fullClasspath or (Runtime / fullClasspath)).value),
     assembly / externalDependencyClasspath := Def.uncached((externalDependencyClasspath or (Runtime / externalDependencyClasspath)).value),
   ) ++ PluginCompat.baseTestSettings
-    ++ inTask(assembly)(assemblyOptionSettings)
-    ++ inTask(assemblyPackageScala)(assemblyOptionSettings)
-    ++ inTask(assemblyPackageDependency)(assemblyOptionSettings)
+    ++ Project.inTask(assembly)(assemblyOptionSettings)
+    ++ Project.inTask(assemblyPackageScala)(assemblyOptionSettings)
+    ++ Project.inTask(assemblyPackageDependency)(assemblyOptionSettings)
     ++ Seq(
       assemblyPackageScala / assemblyOption ~= {
         _.withIncludeBin(false)
