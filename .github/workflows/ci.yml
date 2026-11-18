@@ -32,6 +32,14 @@ jobs:
             java: 11
             distribution: temurin
             jobtype: sbt-1
+          - os: ubuntu-latest
+            java: 21
+            distribution: temurin
+            jobtype: sbt-2
+          - os: ubuntu-latest
+            java: 25
+            distribution: temurin
+            jobtype: sbt-2
           - os: windows-latest
             java: 17
             distribution: temurin
