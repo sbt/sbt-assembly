@@ -6,6 +6,12 @@ lazy val recordAssemblyMtime = taskKey[Unit]("Records the assembly JAR's modific
 @transient
 lazy val checkAssemblyNotRebuilt = taskKey[Unit]("Checks that an unchanged assembly did not rewrite its JAR")
 
+@transient
+lazy val checkKeptOnly = taskKey[Unit]("")
+
+@transient
+lazy val checkBothKept = taskKey[Unit]("")
+
 def classPresent(jar: File, entry: String): Boolean = {
   val zf = new java.util.zip.ZipFile(jar)
   try zf.getEntry(entry) != null finally zf.close()
@@ -18,8 +24,8 @@ lazy val root = (project in file("."))
     exportJars := false,
     assembly / assemblyJarName := "foo.jar",
     keepPatterns := Seq("keep.**"),
-    assembly / assemblyShadeRules := Seq(ShadeRule.keep(keepPatterns.value: _*).inProject),
-    TaskKey[Unit]("checkKeptOnly") := {
+    assembly / assemblyShadeRules := Seq(ShadeRule.keep(keepPatterns.value*).inProject),
+    checkKeptOnly := {
       val jar = (assembly / assemblyOutputPath).value
       assert(classPresent(jar, "keep/Kept$.class"), "keep/Kept$.class missing")
       assert(!classPresent(jar, "removed/Dropped$.class"), "removed/Dropped$.class should be dropped")
@@ -34,7 +40,7 @@ lazy val root = (project in file("."))
       val actual = java.nio.file.Files.getLastModifiedTime(jar.toPath).toString
       assert(actual == expected, s"unchanged assembly rewrote $jar: $actual (expected $expected)")
     },
-    TaskKey[Unit]("checkBothKept") := {
+    checkBothKept := {
       val jar = (assembly / assemblyOutputPath).value
       val kept = classPresent(jar, "keep/Kept$.class")
       val dropped = classPresent(jar, "removed/Dropped$.class")
