@@ -4,10 +4,13 @@ assemblyShadeRules := Seq(
 )
 exportJars := false
 
+@transient
+lazy val unzip = taskKey[Unit]("")
+
 lazy val root = (project in file("."))
   .settings(
     assembly / assemblyJarName := "assembly.jar",
-    TaskKey[Unit]("unzip") := {
+    unzip := {
       IO.unzip((assembly / assemblyOutputPath).value, crossTarget.value / "unzipped")
     }
   )
